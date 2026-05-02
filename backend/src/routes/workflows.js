@@ -1,22 +1,59 @@
 // Phase 4.17 — workflow engine routes. CRUD + manual run + run history.
 // See docs/48-workflow-engine.md.
+//
+// Phase 4.17 v2 — `POST /incoming/:code` is mounted BEFORE the
+// authenticate middleware. The per-workflow shared secret IS the
+// auth, matched in constant time against `triggerConfig.secret`.
 
+import crypto from 'node:crypto';
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { authenticate } from '../middleware/auth.js';
 import { requirePermission } from '../middleware/permission.js';
-import { asyncHandler, badRequest, notFound } from '../lib/http.js';
+import { asyncHandler, badRequest, notFound, unauthorized } from '../lib/http.js';
 import { parseId, requireFields, parsePagination } from '../middleware/validate.js';
 import { writeAudit } from '../lib/audit.js';
 import { computeNext } from '../lib/cron.js';
 import {
-  TRIGGER_TYPES, ACTION_TYPES, RECORD_OPS, runWorkflowManually,
+  TRIGGER_TYPES, ACTION_TYPES, RECORD_OPS, runWorkflowManually, runWorkflow,
 } from '../lib/workflow_engine.js';
 
 const router = Router();
-router.use(authenticate);
 
 const SCHEDULE_FREQUENCIES = ['every_minute', 'every_5_minutes', 'hourly', 'daily', 'weekly', 'monthly', 'cron'];
+
+// ---------------------------------------------------------------------------
+// PUBLIC routes — must be declared before `router.use(authenticate)` below.
+// ---------------------------------------------------------------------------
+
+function constantTimeEquals(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  if (a.length !== b.length) return false;  // length leak is unavoidable; fail fast on the cheap signal
+  return crypto.timingSafeEqual(Buffer.from(a, 'utf8'), Buffer.from(b, 'utf8'));
+}
+
+router.post(
+  '/incoming/:code',
+  asyncHandler(async (req, res) => {
+    const code = String(req.params.code || '');
+    const wf = await prisma.workflow.findUnique({ where: { code } });
+    if (!wf || !wf.enabled || wf.triggerType !== 'webhook') throw notFound('Workflow not found');
+    let cfg = {};
+    try { cfg = JSON.parse(wf.triggerConfig || '{}'); } catch { /* keep {} */ }
+    const expected = typeof cfg.secret === 'string' ? cfg.secret : '';
+    const presented = req.get('X-Workflow-Secret') || '';
+    if (!expected || !constantTimeEquals(expected, presented)) throw unauthorized('Invalid workflow secret');
+    const trigger = { kind: 'webhook', payload: req.body ?? null };
+    const result = await runWorkflow(wf, 'webhook', trigger);
+    res.json(result);
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// AUTHENTICATED routes — everything below requires a valid session.
+// ---------------------------------------------------------------------------
+
+router.use(authenticate);
 
 function parseJson(s, fallback) {
   if (typeof s !== 'string' || s.length === 0) return fallback;
@@ -97,6 +134,14 @@ function validateDefinition({ triggerType, triggerConfig, actions }) {
   if (triggerType === 'schedule') {
     if (!triggerConfig || !SCHEDULE_FREQUENCIES.includes(triggerConfig.frequency)) {
       throw badRequest(`schedule trigger requires triggerConfig.frequency in ${SCHEDULE_FREQUENCIES.join(', ')}`);
+    }
+  }
+  // Phase 4.17 v2 — webhook trigger needs a secret. We'll auto-generate
+  // on create when missing (see POST handler), so validation only
+  // rejects shapes that look explicitly broken (non-string secret).
+  if (triggerType === 'webhook') {
+    if (triggerConfig && triggerConfig.secret !== undefined && typeof triggerConfig.secret !== 'string') {
+      throw badRequest('webhook trigger: secret must be a string when provided');
     }
   }
   if (!Array.isArray(actions)) throw badRequest('actions must be an array');
@@ -180,6 +225,13 @@ router.post(
     requireFields(req.body, ['code', 'name', 'triggerType']);
     const { code, name, description, triggerType, triggerConfig = {}, actions = [], enabled = true } = req.body;
     validateDefinition({ triggerType, triggerConfig, actions });
+    // Phase 4.17 v2 — webhook trigger auto-secret. Mirrors the
+    // WebhookSubscription create path: the secret is revealed once in
+    // the response so the operator can copy it; subsequent reads return
+    // it as well, since this is admin-only.
+    if (triggerType === 'webhook' && !triggerConfig.secret) {
+      triggerConfig.secret = crypto.randomBytes(24).toString('hex');
+    }
     let nextRunAt = null;
     if (triggerType === 'schedule') nextRunAt = computeNext(triggerConfig, new Date());
     const created = await prisma.workflow.create({
@@ -255,6 +307,23 @@ router.post(
     if (!w) throw notFound('Workflow not found');
     const result = await runWorkflowManually(w, req.body?.payload ?? null);
     await writeAudit({ req, action: 'run', entity: 'Workflow', entityId: id, metadata: result });
+    res.json(result);
+  }),
+);
+
+// Phase 4.17 v2 — by-code manual run. Consumed by the page-builder
+// `button` block, whose runtime config carries `workflowCode` (not id —
+// codes are stable across template apply / subsystem re-seeds, ids are
+// not). Same permission gate as the by-id route.
+router.post(
+  '/by-code/:code/run',
+  requirePermission('workflows.run'),
+  asyncHandler(async (req, res) => {
+    const code = String(req.params.code || '');
+    const w = await prisma.workflow.findUnique({ where: { code } });
+    if (!w) throw notFound('Workflow not found');
+    const result = await runWorkflowManually(w, req.body?.payload ?? null);
+    await writeAudit({ req, action: 'run', entity: 'Workflow', entityId: w.id, metadata: result });
     res.json(result);
   }),
 );

@@ -140,6 +140,14 @@ Future<Map<String, dynamic>?> _buttonInspector(BuildContext context, Map<String,
   final label = TextEditingController(text: config['label']?.toString() ?? 'Button');
   final route = TextEditingController(text: config['route']?.toString() ?? '/');
   String variant = config['variant']?.toString() ?? 'filled';
+  // Phase 4.17 v2 — optional workflow trigger. When set, tap fires
+  // POST /api/workflows/by-code/<code>/run instead of navigating.
+  final workflowCode = TextEditingController(text: config['workflowCode']?.toString() ?? '');
+  final workflowPayload = TextEditingController(
+    text: config['workflowPayload'] is Map
+        ? const JsonEncoder.withIndent('  ').convert(config['workflowPayload'])
+        : (config['workflowPayload']?.toString() ?? ''),
+  );
   return _wrap(
     context,
     t.inspectorTitleButton,
@@ -158,8 +166,50 @@ Future<Map<String, dynamic>?> _buttonInspector(BuildContext context, Map<String,
         ],
         onChanged: (v) => setSt(() => variant = v ?? 'filled'),
       ),
+      const Divider(height: 24),
+      const Text(
+        'Workflow trigger (optional)',
+        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+      ),
+      const Text(
+        'When a workflow code is set, tapping the button fires the workflow instead of navigating.',
+        style: TextStyle(fontSize: 11, color: Colors.grey),
+      ),
+      const SizedBox(height: 8),
+      TextField(
+        controller: workflowCode,
+        decoration: const InputDecoration(labelText: 'Workflow code (lower_snake)'),
+      ),
+      const SizedBox(height: 8),
+      TextField(
+        controller: workflowPayload,
+        maxLines: 3,
+        minLines: 1,
+        style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+        decoration: const InputDecoration(
+          labelText: 'Payload (JSON, optional)',
+          border: OutlineInputBorder(),
+        ),
+      ),
     ],
-    () => {'label': label.text, 'route': route.text.trim(), 'variant': variant},
+    () {
+      final out = <String, dynamic>{
+        'label': label.text,
+        'route': route.text.trim(),
+        'variant': variant,
+      };
+      final wc = workflowCode.text.trim();
+      if (wc.isNotEmpty) out['workflowCode'] = wc;
+      final wp = workflowPayload.text.trim();
+      if (wp.isNotEmpty) {
+        try {
+          out['workflowPayload'] = jsonDecode(wp);
+        } catch (_) {
+          out['workflowPayload'] = wp;
+        }
+      }
+      return out;
+    },
   );
 }
 

@@ -1,6 +1,6 @@
 # Documentation — TatbeeqX
 
-This folder is the documentation hub. It is the place to look first when you (or a future Claude session) need to understand what the system is, how it is wired, and where it stands.
+This folder is the documentation hub. It is the place to look first when you need to understand what the system is, how it is wired, and where it stands.
 
 If you are starting a brand-new session, read these in order:
 

@@ -14,7 +14,12 @@ import { logSystem } from './system_log.js';
 // Constants
 // ---------------------------------------------------------------------------
 
-export const TRIGGER_TYPES = ['record', 'event', 'schedule'];
+// Phase 4.17 v2 — `webhook` was added so external systems can POST to a
+// public per-workflow URL (`/api/workflows/incoming/:code`) authenticated
+// by a per-workflow shared secret. Same engine, just a different match
+// path: incoming HTTP requests bypass trigger matching entirely (the
+// route handler runs the workflow directly when the secret is valid).
+export const TRIGGER_TYPES = ['record', 'event', 'schedule', 'webhook'];
 export const ACTION_TYPES = [
   'set_field',
   'create_record',

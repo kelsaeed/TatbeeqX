@@ -1,6 +1,6 @@
 # 19 — Project memory snapshot
 
-This is a curated mirror of the **durable, non-obvious facts** about the project. The full long-form is at [`MEMORY.md`](../MEMORY.md) at the project root — that file is *always* loaded into a Claude session. This page is the human-facing companion.
+This is a curated mirror of the **durable, non-obvious facts** about the project. The full long-form is at [`MEMORY.md`](../MEMORY.md) at the project root. This page is the human-facing companion.
 
 > If you change something here, change `MEMORY.md` to match (and vice versa).
 

@@ -62,7 +62,7 @@ xcuserdata/
 .DS_Store
 Thumbs.db
 
-# --- Claude Code per-user (team `.claude/settings.json` is shared if present) ---
+# --- Local-only agent harness config ---
 .claude/settings.local.json
 
 # --- Test / coverage ---

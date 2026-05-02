@@ -172,22 +172,28 @@ Widget _renderBlock(BuildContext context, Map<String, dynamic> block, List<Map<S
             );
       break;
     case 'button':
+      // Phase 4.17 v2 — `workflowCode` (optional) makes the button a
+      // workflow trigger instead of a navigation. When set, tap fires
+      // `POST /api/workflows/by-code/<code>/run` with `payload`. When
+      // absent, falls back to the existing route navigation.
       final label = config['label']?.toString() ?? 'Button';
       final route = config['route']?.toString() ?? '/';
       final variant = config['variant']?.toString() ?? 'filled';
-      void onPressed() => GoRouter.of(context).go(route);
-      Widget btn;
-      switch (variant) {
-        case 'outlined':
-          btn = OutlinedButton(onPressed: onPressed, child: Text(label));
-          break;
-        case 'text':
-          btn = TextButton(onPressed: onPressed, child: Text(label));
-          break;
-        default:
-          btn = FilledButton(onPressed: onPressed, child: Text(label));
-      }
-      child = Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Align(alignment: Alignment.centerLeft, child: btn));
+      final workflowCode = config['workflowCode']?.toString();
+      final workflowPayload = config['workflowPayload'];
+      child = Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: _PageButton(
+            label: label,
+            variant: variant,
+            workflowCode: (workflowCode != null && workflowCode.isNotEmpty) ? workflowCode : null,
+            workflowPayload: workflowPayload is Map ? Map<String, dynamic>.from(workflowPayload) : null,
+            navigateTo: route,
+          ),
+        ),
+      );
       break;
     case 'card':
       child = Padding(
@@ -320,6 +326,73 @@ String _resolveUrl(String url) {
   const base = AppConfig.apiBaseUrl;
   final stripped = base.endsWith('/api') ? base.substring(0, base.length - 4) : base;
   return '$stripped$url';
+}
+
+// Phase 4.17 v2 — runtime button. When `workflowCode` is set, tap fires
+// the workflow via POST /workflows/by-code/<code>/run instead of
+// navigating. Lives as a widget (not inline) so it can read the API
+// client from Riverpod without threading `ref` through every block.
+class _PageButton extends ConsumerStatefulWidget {
+  final String label;
+  final String variant;
+  final String? workflowCode;
+  final Map<String, dynamic>? workflowPayload;
+  final String navigateTo;
+
+  const _PageButton({
+    required this.label,
+    required this.variant,
+    required this.workflowCode,
+    required this.workflowPayload,
+    required this.navigateTo,
+  });
+
+  @override
+  ConsumerState<_PageButton> createState() => _PageButtonState();
+}
+
+class _PageButtonState extends ConsumerState<_PageButton> {
+  bool _busy = false;
+
+  Future<void> _onPressed() async {
+    if (_busy) return;
+    if (widget.workflowCode == null) {
+      GoRouter.of(context).go(widget.navigateTo);
+      return;
+    }
+    setState(() => _busy = true);
+    final api = ref.read(apiClientProvider);
+    try {
+      final res = await api.postJson(
+        '/workflows/by-code/${widget.workflowCode}/run',
+        body: {if (widget.workflowPayload != null) 'payload': widget.workflowPayload},
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Workflow ${res['status'] ?? 'fired'} (run ${res['runId'] ?? '?'})')),
+      );
+    } catch (err) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err.toString())));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final child = _busy
+        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+        : Text(widget.label);
+    switch (widget.variant) {
+      case 'outlined':
+        return OutlinedButton(onPressed: _busy ? null : _onPressed, child: child);
+      case 'text':
+        return TextButton(onPressed: _busy ? null : _onPressed, child: child);
+      default:
+        return FilledButton(onPressed: _busy ? null : _onPressed, child: child);
+    }
+  }
 }
 
 class _BarChartView extends StatelessWidget {

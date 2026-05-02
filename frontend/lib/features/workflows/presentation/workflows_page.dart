@@ -12,6 +12,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/providers.dart';
 import '../../../shared/widgets/page_header.dart';
+import 'workflow_editor_dialog.dart';
 
 class WorkflowsPage extends ConsumerStatefulWidget {
   const WorkflowsPage({super.key});
@@ -252,141 +253,12 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
   Future<void> _newWorkflow() => _editWorkflow(null);
 
   Future<void> _editWorkflow(Map<String, dynamic>? existing) async {
-    final isEdit = existing != null;
-    final code = TextEditingController(text: existing?['code']?.toString() ?? '');
-    final name = TextEditingController(text: existing?['name']?.toString() ?? '');
-    final desc = TextEditingController(text: existing?['description']?.toString() ?? '');
-    String triggerType = existing?['triggerType']?.toString() ?? 'event';
-    final triggerCfg = TextEditingController(
-      text: const JsonEncoder.withIndent('  ').convert(existing?['triggerConfig'] ?? const {}),
-    );
-    final actionsJson = TextEditingController(
-      text: const JsonEncoder.withIndent('  ').convert(existing?['actions'] ?? const []),
-    );
-
-    final ok = await showDialog<bool>(
+    // Phase 4.17 v2 — visual builder dialog. The legacy JSON editor
+    // lives behind the "Advanced" toggle inside the dialog.
+    final result = await showDialog<Map<String, dynamic>?>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSt) => AlertDialog(
-          title: Text(isEdit ? 'Edit workflow' : 'New workflow'),
-          content: SizedBox(
-            width: 640,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextField(
-                    controller: code,
-                    enabled: !isEdit,  // code is unique + audit-anchor; never re-key
-                    decoration: const InputDecoration(labelText: 'code (lower_snake, unique)'),
-                  ),
-                  TextField(controller: name, decoration: const InputDecoration(labelText: 'Name')),
-                  TextField(controller: desc, decoration: const InputDecoration(labelText: 'Description (optional)')),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: triggerType,
-                    items: ((_catalog['triggerTypes'] as List?) ?? const ['record', 'event', 'schedule'])
-                        .map((t) => DropdownMenuItem(value: t.toString(), child: Text(t.toString())))
-                        .toList(),
-                    onChanged: (v) {
-                      if (v == null) return;
-                      setSt(() {
-                        triggerType = v;
-                        triggerCfg.text = const JsonEncoder.withIndent('  ').convert(_defaultCfg(v));
-                      });
-                    },
-                    decoration: const InputDecoration(labelText: 'Trigger type'),
-                  ),
-                  const SizedBox(height: 8),
-                  Text('Trigger config (JSON)  •  hint: ${_triggerHint(triggerType)}',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  TextField(
-                    controller: triggerCfg,
-                    maxLines: 6,
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                    decoration: const InputDecoration(border: OutlineInputBorder()),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Actions (JSON array)  •  types: ${(_catalog['actionTypes'] as List?)?.join(", ") ?? "—"}',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                  TextField(
-                    controller: actionsJson,
-                    maxLines: 12,
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                    decoration: const InputDecoration(border: OutlineInputBorder()),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(isEdit ? 'Save' : 'Create')),
-          ],
-        ),
-      ),
+      builder: (_) => WorkflowEditorDialog(existing: existing, catalog: _catalog),
     );
-    if (ok != true || !mounted) return;
-
-    Map<String, dynamic> parsedCfg;
-    List<dynamic> parsedActions;
-    try {
-      parsedCfg = jsonDecode(triggerCfg.text) as Map<String, dynamic>;
-      parsedActions = jsonDecode(actionsJson.text) as List<dynamic>;
-    } catch (err) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Invalid JSON: $err')));
-      return;
-    }
-
-    final api = ref.read(apiClientProvider);
-    try {
-      if (isEdit) {
-        await api.putJson('/workflows/${existing['id']}', body: {
-          'name': name.text.trim(),
-          'description': desc.text.trim(),
-          'triggerType': triggerType,
-          'triggerConfig': parsedCfg,
-          'actions': parsedActions,
-        });
-      } else {
-        await api.postJson('/workflows', body: {
-          'code': code.text.trim(),
-          'name': name.text.trim(),
-          'description': desc.text.trim(),
-          'triggerType': triggerType,
-          'triggerConfig': parsedCfg,
-          'actions': parsedActions,
-        });
-      }
-      await _load();
-    } catch (err) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err.toString())));
-    }
-  }
-
-  Map<String, dynamic> _defaultCfg(String type) {
-    switch (type) {
-      case 'record': return {'entity': 'leads', 'on': ['created']};
-      case 'event': return {'event': 'approval.approved'};
-      case 'schedule': return {'frequency': 'daily', 'timeOfDay': '08:00'};
-      default: return {};
-    }
-  }
-
-  String _triggerHint(String type) {
-    switch (type) {
-      case 'record':
-        return 'entity (string), on: ["created","updated","deleted"], optional filter';
-      case 'event':
-        return 'event (string) — e.g. "approval.approved" or "*"';
-      case 'schedule':
-        return 'frequency: daily/hourly/cron + timeOfDay/dayOfWeek/dayOfMonth/cron';
-      default:
-        return '';
-    }
+    if (result != null) await _load();
   }
 }
