@@ -242,15 +242,120 @@ Closes the last Phase 4.11 carry-over. The Flutter app now runs on iOS and Andro
 - ✅ **No release signing yet** — Android `release` block falls back to debug keys; iOS uses default automatic provisioning. Documented in the open-follow-ups section of [45-mobile-shell.md](45-mobile-shell.md). Out of scope until a customer needs store distribution.
 - ✅ **No new tests, no UI changes** — verified via `flutter pub get` (clean) + `flutter analyze` (clean) + operator smoke-test on Android emulator and iOS simulator (login → drawer nav → CRUD → company switch → logout, RTL flip on Arabic).
 
-### Phase 4.15 — proposed
+### ✅ Phase 4.15 — Templates UI + iframe-on-web + custom relations + deep i18n (DONE — 2026-05-02)
 
-- True code-gen pruning — read `template.modules` and emit a trimmed Flutter source tree + trimmed backend routes. The Phase 4.12 metadata + module-per-file structure makes this tractable.
-- Templates UI for `branding` + `modules` editing — today operators hand-edit captured JSON before passing to the build CLI.
-- Deep i18n cleanup pass (block inspectors, theme builder panels, page builder add-panel) — the Phase 4.11 scope cut.
-- iframe rendering on web build (placeholder text on desktop, real `<iframe>` on web).
-- Postgres dev compose path + validate `pg_dump` against it.
-- Custom relations across entities — multi-select / many-to-many.
-- Mobile release signing + store pipelines — when distribution is on the table.
+5-item sequence; 4 of 5 shipped, #3 deferred.
+
+- ✅ **#1 Templates UI for branding + modules** — `/templates` editor now lets operators edit a captured template's `branding` (appName / logoUrl / primaryColor / iconPath) + `modules` (sidebar filter contract) **before** export, instead of hand-editing JSON in a text editor. Two-panel form per template; export writes the edited template back as a download.
+- ✅ **#2 iframe-on-web** — page-builder `iframe` block renders a real `<iframe>` on web (with `sandbox` attribute) and a "preview not available on desktop" placeholder card on Windows/macOS/Linux. Backed by conditional imports in `iframe_renderer{,_web,_stub}.dart`.
+- ⛔ **#3 Postgres compose** — blocked on Docker Desktop not being installed in this environment. Doc-only deferred; the docker-compose.yml already has the service defined.
+- ✅ **#4 Custom relations many-to-many** — `relations` (plural) column type stored in an auto-managed join table `<source>_<col>_to_<target>`. Symmetric reverse-cascade delete + nullify on single `relation` (1-FK) drops keep dangling refs out. UI exposes multi-select with chip-style picker. Self-references allowed (org-tree pattern).
+- ✅ **#5 Deep i18n cleanup pass (partial)** — block-inspectors deep panels, theme builder side panels, page-builder add-panel translated. The Phase 4.11 scope-cut shrunk by ~60%; remaining English-only surfaces are SQL-runner internals + page-renderer runtime messages.
+
+### ✅ Phase 4.16 — Code-gen pruning for build-subsystem (DONE — 2026-05-02)
+
+Closes the Phase 4.12 caveat that subsystem builds shipped the **whole** Flutter source tree even when the template's `modules` array said only a few were active. The `--prune` flag on `tools/build-subsystem/` now mechanically strips:
+
+- Sidebar imports + GoRoute entries gated by the `// MOD: <code>` marker convention introduced in Phase 4.12.
+- `BEGIN/END` block markers in `app_router.dart` + `routes/index.js` so multi-line module wiring is removed cleanly.
+- Optional Flutter `features/<code>/` subtrees and backend `routes/<code>.js` files when no `// MOD: <code>` reference survives the prune.
+
+15 unit tests for the pruner (`tools/build-subsystem/tests/prune.test.js`); a smoke-test runs `--prune` then `flutter analyze` on the bundled output and asserts zero issues. Subsystem bundles are now meaningfully smaller (~30% on the retail preset). See [44-subsystem-builds.md](44-subsystem-builds.md#code-gen-pruning-phase-416).
+
+### ✅ Phase 4.16 follow-ups — Perf pass + security audit + auth hardening (DONE — 2026-05-02)
+
+Two parallel tracks, both shipped same day.
+
+**Perf pass.** Targeted hot paths surfaced by operator reports of cold-boot lag:
+
+- ✅ Gradle parallel builds + build cache enabled in `frontend/android/gradle.properties`.
+- ✅ Express `compression` middleware (1KB threshold) — JSON-heavy endpoints (`/api/audit`, `/api/system-logs`) shrink to 10–15% of their original wire size.
+- ✅ `audit.actions_summary` builder rewritten as a single SQL `GROUP BY` instead of an in-memory aggregation over `findMany()`.
+- ✅ Settings bulk-update batched with `prisma.$transaction` instead of N round-trips.
+- ✅ `db_introspect.js` parallelizes `PRAGMA` queries with `Promise.all`.
+- ✅ Frontend cold-boot waterfall fix in `app_router.dart` — `auth` + `setup` + `subsystem` providers now read in parallel via the `refreshListenable` adapter (eliminated 3-pass duplicate fetches).
+
+No test regressions; `flutter analyze` clean.
+
+**Security audit + fixes.** Closes 4 real pre-existing auth bugs surfaced by an internal audit:
+
+- ✅ **Auto token-refresh** — frontend ApiClient now intercepts 401s, refreshes once, retries; previously expired access tokens kicked the user back to login mid-session.
+- ✅ **logout() now hits the backend** — previously only cleared local storage, leaving the refresh token valid server-side until expiry.
+- ✅ **Per-IP login rate limit** — express-rate-limit on `/api/auth/login` (default 10/15min/IP).
+- ✅ **Timing-safe login compare** — `lib/password.js` uses `timingSafeEqual` so wrong-password latency doesn't leak via timing.
+
+6 known gaps documented in the same audit memo (no refresh rotation, no password reset, no 2FA, no per-row login event audit, no log-out-everywhere, no admin reset path) — every one of them addressed in subsequent rounds below.
+
+### ✅ Phase 4.16 follow-up — Refresh rotation + reuse detection + sessions UI (DONE — 2026-05-02)
+
+- ✅ **`RefreshToken` model** — every issued refresh token gets a row keyed by its JWT `jti`. Issued/expires/revoked timestamps + `replacedById` chain + captured user-agent + IP for forensics.
+- ✅ **Rotation on `/auth/refresh`** — verify JWT, find row by jti, reject if revoked/expired, mark revoked, issue a new pair, link new row via `replacedById`.
+- ✅ **Reuse detection** — a *revoked* token presenting itself again is theft. Invalidate the entire replacement chain, audit the event, force the user to re-login everywhere.
+- ✅ **Sessions UI** at `/sessions` — every authenticated user sees their active devices (issued time, last user-agent, last IP). Per-row revoke + "Sign out everywhere" bulk action. No admin "see everyone's sessions" view — stays per-account.
+- ✅ **Tests grow to ~210**.
+
+### ✅ Phase 4.16 follow-up — Admin-token password reset (DONE — 2026-05-02)
+
+- ✅ **`PasswordResetToken` model** — `(userId, tokenHash, expiresAt, usedAt, createdBy, ip)`. Plaintext token returned ONCE on generation; only sha256 hash persisted.
+- ✅ **Admin generates** — `POST /api/users/:id/password-reset` (Super Admin or `users.edit`). Returns `{token, url, expiresAt}` once.
+- ✅ **User redeems** — `POST /api/auth/redeem-reset-token` (public, rate-limited). Single-use + 24h TTL by default. Re-use of a used token is a theft signal — audited and refused with the same generic error as a wrong token (no oracle).
+- ✅ **Cascading cancel** — redeeming one token also cancels every other outstanding token for the same user, and revokes all active sessions (forces re-login everywhere).
+- ✅ **Frontend** — `/reset-password?token=…` page reads token from query, prompts for new password, POSTs to redeem.
+- ✅ **No SMTP dependency** — admin shares the token URL out-of-band. Self-serve email path lands later in Phase 4.19.
+
+### ✅ Phase 4.16 follow-up — TOTP 2FA + recovery codes (DONE — 2026-05-02)
+
+- ✅ **`User.totpSecret` + `totpEnabledAt`** — secret encrypted at rest with AES-256-GCM (`iv|tag|ciphertext` base64) using `MFA_SECRET` env key. Null when 2FA disabled.
+- ✅ **`RecoveryCode` model** — 10 single-use codes generated at enrollment, sha256-hashed, normalized on input (case + dashes + spaces).
+- ✅ **Enrollment flow** — `/auth/2fa/enroll` returns a `secret` + `otpauth://` URI; `/auth/2fa/verify-enrollment` confirms the user copied the QR correctly.
+- ✅ **Login flow** — when 2FA is on, login returns a short-lived `challengeToken` instead of session; `/auth/2fa/challenge` redeems with either a TOTP code or a recovery code.
+- ✅ **Self-disable** requires a current code (proves possession). **Admin reset** (`/users/:id/2fa/reset`, Super Admin) bypasses for lockout recovery.
+- ✅ **Tests grow to ~250+**.
+
+### ✅ Phase 4.17 — Workflow engine v1 (DONE — 2026-05-02)
+
+Admin-defined automation that runs on system events. Three triggers, six actions, persisted runs + steps. See [48-workflow-engine.md](48-workflow-engine.md) for the full design.
+
+- ✅ **`Workflow` / `WorkflowRun` / `WorkflowRunStep` models + migration.** Schedule-state columns inline on `Workflow` so the cron loop's atomic claim is a single `updateMany`, identical to `ReportSchedule`.
+- ✅ **Triggers** — `record` (on insert/update/delete to any custom entity, optional filter), `event` (subscribes to the existing `dispatchEvent` stream — `approval.*`, `backup.created`, `record.*`), `schedule` (frequency + cron, reuses `computeNext`).
+- ✅ **Actions** — `set_field`, `create_record`, `http_request`, `dispatch_event`, `create_approval`, `log`. Action chain runs in order; per-action `condition` (JSON DSL) + `stopOnError` + `name` for chaining via `{{steps.<name>.<key>}}`.
+- ✅ **Wiring** — `lib/custom_entity_engine.js` mutations now call `fireWorkflowsForRecord`; `lib/webhooks.js#dispatchEvent` fans out to workflows alongside webhook subscribers; `lib/cron.js` claims due `Workflow` rows alongside `ReportSchedule`.
+- ✅ **Routes + permissions** — `/api/workflows` CRUD + manual run + run history. New `workflows` permission module with `view/create/edit/delete/run`.
+- ✅ **Template portability** — `applyTemplateData` imports workflow definitions; full + business captures include them.
+- ✅ **Frontend** — `/workflows` page with JSON-edited definitions in v1 (visual builder lands in v2 below).
+- ✅ **Tests grow by 13** — engine unit tests (templating, condition DSL, path resolver) + route integration tests (CRUD, manual-run, record-trigger end-to-end, condition gating, stopOnError).
+
+### ✅ Phase 4.17 v2 — Visual builder + webhook trigger + page-button trigger (DONE — 2026-05-02)
+
+- ✅ **Visual chain builder UI** replaces the JSON editor in `workflows_page.dart`. Trigger picker per type (record entity dropdown, event catalog dropdown, schedule frequency form, webhook secret + curl example), action cards with type/name/condition/stopOnError/params, recursive condition builder for the JSON DSL. Raw-JSON editor preserved behind an "Advanced" toggle.
+- ✅ **`webhook` trigger type** — public `POST /api/workflows/incoming/:code` mounted before the authenticate middleware; per-workflow shared secret matched constant-time against the `X-Workflow-Secret` header. Auto-generated on create, revealed once.
+- ✅ **Page-button trigger** — page-builder `button` block extended with optional `workflowCode` + `workflowPayload`. When set, tap fires `POST /api/workflows/by-code/:code/run` instead of navigating. New by-code run route gated by `workflows.run`.
+- ✅ **11 new tests** covering incoming-webhook auth (correct/missing/wrong secret, disabled workflow, wrong triggerType, no Bearer required), by-code run (auth + 404 + write a run row).
+
+### ✅ Phase 4.18 — In-app notifications (DONE — 2026-05-02)
+
+Per-user notification tray, ergonomic complement to the workflow engine.
+
+- ✅ **`Notification` model + migration** — per-user (no broadcast in v1; `notifyRole` helper exists in `lib/notifications.js` but isn't exposed as a workflow action).
+- ✅ **Routes** — `/api/notifications` list (unread-first), `/unread-count` (cheap badge query), `/:id/read`, `/read-all`, `/:id` DELETE, bulk DELETE (read-only by default, `?all=true` to nuke unread too). Per-account isolation enforced (matches `/sessions` precedent).
+- ✅ **Workflow `notify_user` action** — resolves target by `userId` | `username` | `email` (first match wins). Step fails when no user resolves.
+- ✅ **Frontend** — `NotificationsBell` in the topbar (45s poll, badge with cap, popover with mark-read + dismiss + tap-to-link), full `/notifications` page with unread-only toggle + bulk actions.
+- ✅ **13 new tests** — CRUD, per-account isolation, unread-only filter, ordering (unread-first then newest by id), bulk-dismiss read vs all, end-to-end notify_user via a workflow run.
+
+### ✅ Phase 4.19 — SMTP outbound email (DONE — 2026-05-02) — **CURRENT**
+
+Vendor-neutral SMTP via Nodemailer. Stub-mode fallback when `SMTP_HOST` is unset — non-critical callers gracefully no-op + log a single warning per process boot, while critical callers (forgot-password) check `isConfigured()` first and return 503 so operators know to wire it up. See [49-user-manual.md](49-user-manual.md) for the user-facing flows.
+
+- ✅ **`lib/email.js`** — `sendEmail()`, `wrapEmail()` (HTML template with brand bar + CTA + footer), `isConfigured()`, test seams (`_resetForTests` + `_setTransportForTests`). Reads SMTP_* live from `process.env` so tests can flip configuration mid-suite. Never throws — callers inspect `{ ok, reason, stubbed, messageId }`.
+- ✅ **Env config** — `SMTP_HOST/PORT/SECURE/USER/PASS/FROM` + `APP_URL` (for email links). `.env.example` updated.
+- ✅ **Self-serve `/api/auth/forgot-password`** — rate-limited (5/15min/IP default), anti-enumeration (always 200 with the same generic message regardless of whether the account exists), 1h single-use token, returns 503 when SMTP isn't configured. Reuses the existing `PasswordResetToken` model + `redeem-reset-token` endpoint.
+- ✅ **Workflow `send_email` action** — composes with the chain; stub-mode returns step success with `stubbed:true` so chains stay non-fatal in dev. Set `BAIL_ON_NO_SMTP=1` to make it fail loudly.
+- ✅ **Approval decision emails** — when an `ApprovalRequest` flips to approved or rejected, the requester gets both an in-app notification (always) and an email (when SMTP up + email on file). Fire-and-forget — the decide endpoint never blocks on email or notification persistence.
+- ✅ **Frontend** — `ForgotPasswordPage` at `/forgot-password` (public; matches the `/reset-password` precedent in the auth-bypass redirect). "Forgot password?" link on the login page. Existing `ResetPasswordPage` reused for redemption — flow is end-to-end.
+- ✅ **17 new tests** — input validation (no recipient / no subject / no body), stub mode, real send via injected fake transport (multi-recipient, custom from, transport error path), `wrapEmail` HTML escaping + CTA presence, forgot-password (503 without SMTP, 200 anti-enumeration generic ack, token persisted for known user), workflow `send_email` action both modes.
+- ✅ **Tests grow to 28 files / 340 passing** (+17 from 4.18).
+
+**Deferred (documented in the workflow engine doc):** scheduled-report email digest (would need `ReportSchedule.recipients` JSON field + cron-loop email send + UI to manage subscribers), `notify_role` workflow action (helper exists but not yet wired), SMTP retry policy + bounce handling.
 
 ---
 

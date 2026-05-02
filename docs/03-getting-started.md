@@ -1,18 +1,21 @@
 # 03 — Getting started
 
-This walks through a clean install on a Windows machine with no prior setup.
+This walks a developer through a clean install on a Windows machine with no prior setup. End users should read [49-user-manual.md](49-user-manual.md) instead — this page is for people who will run the backend + frontend from source.
+
+For the full prerequisite matrix (mobile / iOS / SMTP / Postgres dev loop / etc.), see [SETUP.md](../SETUP.md). This page is the minimum viable path.
 
 ## Prerequisites
 
 - Node.js 20+ on the PATH (`node -v`)
-- Flutter 3.41+ on the PATH (`flutter --version`) with Windows desktop enabled (`flutter config --enable-windows-desktop`)
+- Flutter 3.27+ on the PATH (`flutter --version`) with Windows desktop enabled (`flutter config --enable-windows-desktop`). Verified on 3.41.6.
 - Visual Studio 2022 Build Tools with the **C++ desktop development** workload (required for the Windows desktop build)
 - VS Code (recommended)
 
 ## 1. Clone / open the project
 
-```
-F:\Backup for TatbeeqX\New Project\
+```bash
+git clone https://github.com/kelsaeed/TatbeeqX
+cd TatbeeqX
 ```
 
 Open the folder in VS Code. Open two terminals (Terminal → New Terminal, then split with `+`).
@@ -65,6 +68,26 @@ A fresh database has no business type applied. After login as Super Admin you wi
 - adds a sidebar menu item for each entity at `/c/<code>`
 - writes `settings.system.business_type`
 
+## 5. Optional — wire up email (Phase 4.19)
+
+Email is **off by default**. Without it the system stays fully functional — but self-serve "Forgot password?", approval-decision emails, and the `send_email` workflow action all stub out (printed to console in dev, silent no-op in prod).
+
+To enable, add the SMTP block to `backend/.env`:
+
+```ini
+SMTP_HOST=smtp.your-provider.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=apikey-or-username
+SMTP_PASS=your-secret
+SMTP_FROM="TatbeeqX <no-reply@your-domain.com>"
+APP_URL=http://localhost:8080
+```
+
+Restart `npm run dev`. Verify with `curl -X POST http://localhost:4000/api/auth/forgot-password -H "Content-Type: application/json" -d '{"identifier":"superadmin"}'` — you should see an email arrive (or in dev mode, the message printed to the backend console).
+
+Full provider matrix in [SETUP.md §7](../SETUP.md#7-optional--outbound-email-smtp).
+
 ## Web build (optional)
 
 ```bash
@@ -89,8 +112,11 @@ The same `API_BASE_URL` rule applies. CORS is open in dev (`cors()` with default
 
 1. `curl http://localhost:4000/api/health` returns `{"ok":true}`.
 2. The Flutter window logs in successfully.
-3. The sidebar shows: Dashboard, Companies, Branches, Users, Roles, Reports, Audit Logs, Settings, Appearance, Database, Custom entities, Templates.
-4. `/themes` is reachable as Super Admin.
-5. `/database` lists tables and shows row counts.
+3. As Super Admin, the sidebar shows the full set: Dashboard, Companies, Branches, Users, Roles, Approvals, Audit Logs, Reports, Report Schedules, **Workflows**, Settings, Appearance, Database, Custom entities, Templates, Pages, System, System Logs, Login Activity, Webhooks, Backups, Translations.
+4. The top bar shows the **notifications bell** (Phase 4.18) — click it and you should see "No notifications."
+5. `/themes` is reachable.
+6. `/database` lists tables and shows row counts.
+7. `cd backend && npm test` — passes (340 tests / 28 files as of Phase 4.19, plus 8 cross-language tests that auto-skip on missing toolchains).
+8. `cd frontend && flutter analyze` — zero issues.
 
-If any of those fail, jump to [17-pitfalls.md](17-pitfalls.md).
+If any of those fail, jump to [17-pitfalls.md](17-pitfalls.md). For end-user docs (sign-in, password reset, 2FA, working with the modules) see [49-user-manual.md](49-user-manual.md).

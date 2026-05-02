@@ -5,13 +5,21 @@
 
 Flexible multi-company management platform. Suits restaurants, POS/cashier, factories, clinics, finance offices, rentals, and more. Built to run on a LAN today and to graduate to a cloud database without code changes.
 
+> **New here?**
+> - **Setting up?** → [SETUP.md](SETUP.md) (every install in one place)
+> - **Just want to run it?** → [docs/03-getting-started.md](docs/03-getting-started.md) (5-minute desktop walkthrough)
+> - **Using the app?** → [docs/49-user-manual.md](docs/49-user-manual.md) (sign in, password reset, 2FA, all the modules)
+> - **Where the project stands?** → [docs/18-phases.md](docs/18-phases.md) (current: Phase 4.19 — SMTP outbound email)
+
 ## Stack
 
 - **Backend** — Node.js 20+, Express, Prisma, SQLite (swap the connection string to Postgres/MySQL when you go online).
-- **Frontend** — Flutter (Windows desktop primary; web + mobile-ready) with Riverpod, go_router, dio.
-- **Auth** — JWT access + refresh tokens, bcrypt password hashing.
-- **Permissions** — role-based, fully driven by the database. Admins create roles and assign permissions from the UI.
+- **Frontend** — Flutter (Windows desktop primary; web + iOS + Android shipped) with Riverpod, go_router, dio.
+- **Auth** — JWT access + revocable refresh tokens with rotation + reuse detection, bcrypt passwords, TOTP 2FA + recovery codes, per-IP login rate limiting, timing-safe compare.
+- **Permissions** — role-based, fully driven by the database. Admins create roles and assign permissions from the UI; per-user grant/revoke overrides on top.
 - **Theme** — Super Admin can re-style the entire app from the UI; settings live in the database.
+- **Automation** — workflow engine (4 trigger types × 8 action types), in-app notifications, outbound webhooks (HMAC-signed), outbound email via SMTP.
+- **Tests** — 28 backend test files / 340 vitest cases; CI runs them + `flutter analyze` on every push.
 
 ## Project layout
 
@@ -31,7 +39,23 @@ frontend/     Flutter app
       settings/       key/value settings
       themes/         appearance + theme builder
       menus/          dynamic menu loading
+      pages/          page builder + renderer
+      approvals/      approval queue
+      workflows/      workflow engine UI (Phase 4.17)
+      notifications/  in-app notifications (Phase 4.18) — bell + page
+      sessions/       per-account active devices
+      webhooks/       outbound HTTP subscriptions
+      backups/        DB backup / restore
+      translations/   per-key ARB editor
+      custom_entities/ + custom/  user-defined tables + generic CRUD
+      reports/ + report_schedules/ ...
     shared/widgets/   reusable widgets (table, header, icons, …)
+tools/         Operations utilities
+  build-subsystem/   branded locked-down customer binaries (Phase 4.12)
+  backup-sync/       off-site backup receiver (S3 / restic)
+  webhook-verify/    multi-language signature verifier helpers
+docs/         Documentation hub — start at docs/README.md
+.github/      CI workflow + issue/PR templates
 ```
 
 ## First-time setup
@@ -206,7 +230,22 @@ The active theme is fetched on app startup and applied dynamically — no rebuil
 | `POST /api/admin/backups/rotate-encryption` | re-encrypt all `.enc` backups with a new key + rewrite `.env` (Phase 4.9) |
 | `GET /api/admin/backups/:name/download` | stream a backup; dual auth: Bearer or HMAC-signed `?expires&sig` (Phase 4.10) |
 | `GET/PUT /api/admin/translations[/:locale]` | edit ARB files from the UI (Phase 4.10) |
+| `POST /api/auth/forgot-password` | self-serve password reset email (Phase 4.19, public, anti-enumeration, rate-limited; 503 if SMTP unconfigured) |
+| `POST /api/auth/redeem-reset-token` | redeem a one-time reset token (public, rate-limited, single-use; Phase 4.16) |
+| `POST /api/auth/2fa/{enroll,verify-enrollment,challenge,disable}` | TOTP enrollment + login challenge + self-disable (Phase 4.16) |
+| `POST /api/users/:id/{password-reset,2fa/reset}` | admin-token password reset + admin 2FA reset (Phase 4.16) |
+| `GET/POST/DELETE /api/auth/sessions[/:id]` | active devices + per-session revoke (Phase 4.16) |
+| `POST /api/auth/sessions/revoke-all` | sign out everywhere (Phase 4.16) |
+| `GET/POST/PUT/DELETE /api/workflows` | workflow definitions (Phase 4.17) |
+| `POST /api/workflows/:id/run` | manual fire (`workflows.run`) |
+| `POST /api/workflows/by-code/:code/run` | by-code manual fire — used by page-builder buttons (Phase 4.17 v2) |
+| `POST /api/workflows/incoming/:code` | **public** webhook trigger; secret matched against `X-Workflow-Secret` (Phase 4.17 v2) |
+| `GET /api/workflows/:id/runs` + `/runs/:runId` | run history + step detail |
+| `GET /api/notifications` + `/unread-count` | per-user notification list + badge (Phase 4.18) |
+| `POST /api/notifications/{:id/read,read-all}` + `DELETE` | mark + dismiss (Phase 4.18) |
 | `GET /api/health` | health probe |
+
+For deeper per-endpoint coverage see [docs/07-api-reference.md](docs/07-api-reference.md).
 
 ## Database
 
@@ -257,7 +296,14 @@ The dashboard sidebar populates itself from `/api/menus`, so once the menu row e
 - **Phase 4.8** — **Per-page translatable titles**. **Encrypted backups** (AES-256-GCM, `MCEB` v1 in-memory). **`backup.created` webhook event**. **Isolated per-suite test DB**. **102 tests**.
 - **Phase 4.9** — **Streaming encryption** (`MCEB` v2 with trailer-tag, v1 read-back retained). **Built-in key rotation**. **Role label translation** (`Role.labels` JSON). **Bulk page-header migration**. **Off-site sync receiver tool** (`tools/backup-sync/`). **106 tests**.
 - **Phase 4.10** — **HTTPS download endpoint with pre-signed URLs** (`GET /api/admin/backups/:name/download`, dual auth: Super Admin Bearer or `?expires&sig`; webhook payload now includes `downloadUrl` so receivers can pull cross-host). **Receiver HTTPS pull mode** (no shared filesystem required). **Roles UI label resolution** (role names flip with active locale). **ARB import/export endpoints + `/translations` UI** (edit ARBs from the TatbeeqX UI, with timestamped `.bak-*` sidecars). **119 tests** passing.
-- **Phase 4.13 (now)** — **Subsystem builds v2: automated admin handover.** Closes the biggest 4.12 caveat. The build CLI now takes `--admin-username` / `--admin-password`, hashes the password with bcrypt rounds=10 in the CLI itself, and embeds a `lockdownAdmin` block in `seed.json` — **plaintext never lands on disk**. On first boot in lockdown mode, the seeder disables `superadmin` (vendor still has DB-level support access via SSH), upserts the customer's Company Admin from the pre-computed hash, and grants the `company_admin` role. Pass `--no-admin` to skip and provision manually. **159 backend + 28 receiver tests**. See [docs/44-subsystem-builds.md](docs/44-subsystem-builds.md#customer-admin-user--automated-phase-413).
+- **Phase 4.13** — **Subsystem builds v2: automated admin handover.** Closes the biggest 4.12 caveat. The build CLI now takes `--admin-username` / `--admin-password`, hashes the password with bcrypt rounds=10 in the CLI itself, and embeds a `lockdownAdmin` block in `seed.json` — **plaintext never lands on disk**. On first boot in lockdown mode, the seeder disables `superadmin` (vendor still has DB-level support access via SSH), upserts the customer's Company Admin from the pre-computed hash, and grants the `company_admin` role. Pass `--no-admin` to skip and provision manually. **159 backend + 28 receiver tests**. See [docs/44-subsystem-builds.md](docs/44-subsystem-builds.md#customer-admin-user--automated-phase-413).
+- **Phase 4.14** — **Mobile shell.** iOS + Android scaffolds via `path_provider` (only new dep). Existing responsive shell handles the layout. AndroidManifest cleartext + iOS ATS exception are pre-configured for LAN dev — tighten before App Store / Play submission. See [docs/45-mobile-shell.md](docs/45-mobile-shell.md).
+- **Phase 4.15** — **Templates UI + iframe-on-web + custom relations + deep i18n.** Operators edit `branding` + `modules` in the UI before exporting templates. `iframe` block renders a real `<iframe>` on web with a placeholder on desktop. Many-to-many `relations` column type with auto-managed join tables + reverse-cascade. Deep i18n cleanup pass (block inspectors / theme panels / page-builder add-panel translated). Postgres compose deferred (Docker not installed in dev env).
+- **Phase 4.16** — **Code-gen pruning** for `tools/build-subsystem/`. `--prune` strips sidebar imports + GoRoutes + `routes/index.js` lines for modules absent from `template.modules`. ~30% smaller bundles on the retail preset. 15 unit tests + smoke test that re-runs `flutter analyze` against the pruned bundle.
+- **Phase 4.16 follow-ups** — **Perf pass** (Gradle parallel, gzip middleware, audit-by-day SQL `GROUP BY`, settings bulk-update batched, `db_introspect` parallelized, frontend cold-boot waterfall fix). **Auth hardening** — refresh-token rotation + reuse detection (`RefreshToken` model with `replacedById` chain, theft → invalidate full chain), per-user **sessions UI** + sign-out-everywhere, **admin-token password reset** (single-use sha256-hashed, cascading session revoke on redeem), **TOTP 2FA + recovery codes** (encrypted secret at rest, 10 single-use recovery codes), per-IP login rate limit, timing-safe login compare, per-row login event audit.
+- **Phase 4.17** — **Workflow engine v1+v2.** Admin-defined automation. Triggers: `record` (custom-entity insert/update/delete + filter), `event` (subscribes to `dispatchEvent` stream), `schedule` (cron), `webhook` (public `POST /api/workflows/incoming/:code` with `X-Workflow-Secret`). Actions: `set_field`, `create_record`, `http_request`, `dispatch_event`, `create_approval`, `log`, `notify_user`, `send_email`. Visual chain builder UI (advanced JSON editor preserved behind a toggle). Per-action conditions (JSON DSL — equals/notEquals/gt/in/contains/matches/composers all/any/not). `{{trigger.row.id}}` + `{{steps.<name>.<key>}}` templating. Per-workflow run + step persistence. Page-builder buttons can fire workflows by code. Template-portable. See [docs/48-workflow-engine.md](docs/48-workflow-engine.md).
+- **Phase 4.18** — **In-app notifications.** Per-user `Notification` model, topbar bell with unread badge (45s poll), full `/notifications` page. Workflow `notify_user` action resolves target by `userId` | `username` | `email`. Approval decisions create both an in-app notification and an email (when SMTP up).
+- **Phase 4.19 (current)** — **SMTP outbound email** via Nodemailer (vendor-neutral; Resend / Postmark / SendGrid / SES / Postfix / Gmail). Stub-mode fallback when `SMTP_HOST` is unset — system stays fully functional, emails just no-op. Self-serve `/auth/forgot-password` (anti-enumeration, rate-limited, 1h single-use token). Workflow `send_email` action. Approval-decision emails to the requester. Frontend `ForgotPasswordPage` + "Forgot password?" link on login. **28 files / 340 tests** passing.
 - **Phase 4.12** — **Subsystem builds.** A vendor can capture a template (custom entities + theme + reports + branding) via `/templates`, then run [`tools/build-subsystem/build.mjs`](tools/build-subsystem/) to emit a branded, locked-down customer binary: patched Windows resources, generated `.env` with `SUBSYSTEM_LOCKDOWN=1` + `BOOT_SEED_PATH=./seed.json`, bundled `flutter build windows --release` output, and a `start.bat` that installs deps + applies the template on first boot. New backend lib (`subsystem.js`) + public `GET /api/subsystem/info` endpoint. Frontend `subsystemInfoProvider` reads it once at boot to filter the sidebar, redirect away from super-admin routes, and apply `branding.{appName, logoUrl, primaryColor}` overrides. The `template.modules` array is the runtime sidebar contract today and the future code-gen contract for trimmed-binary builds. See [docs/44-subsystem-builds.md](docs/44-subsystem-builds.md).
 - **Phase 4.11** — **Operational housekeeping + i18n breadth.** **Backup retention policy on disk** — hourly cron sweep prunes `backend/backups/` by age (`system.backup_retention_days`, default 30) and count (`system.backup_retention_max_count`, default disabled), with a min-keep floor (`system.backup_retention_min_keep`, default 1). Manual trigger: `POST /api/admin/backups/sweep-retention`. Settings hot-reload — no restart needed. **Non-Node webhook verify helpers** ([`tools/webhook-verify/`](tools/webhook-verify/)) for Python, Go, PHP, Bash — stdlib-only, with a Node cross-language regression test that auto-skips missing toolchains. **Native S3 / restic uploaders** in [`tools/backup-sync/`](tools/backup-sync/) — `UPLOADER=s3` is hand-rolled SigV4 (no AWS SDK dep, supports any S3-compatible provider via `S3_ENDPOINT`); `UPLOADER=restic` spawns the binary with fail-fast at startup. Optional `KEEP_LOCAL_COPY=0` to bound disk usage. **Per-key translation editor** at `/translations/edit/:locale` replaces the JSON textarea — search, untranslated-only filter, drop-orphans-on-save, English reference column; raw-JSON dialog kept in overflow. **Full UI string migration to AppLocalizations** — ~330 hardcoded strings across 32 files migrated to `t.foo` lookups; ARB grew from 49 → ~225 keys × 3 locales (en/ar/fr) including ICU plurals with Arabic dual/few/many forms. Power-user editor surfaces (block_inspectors, theme_builder deep panels, page-builder add-panel, sql_runner internals) deliberately deferred — Super-Admin-only with low translation ROI. **Auto-heal for custom-entity tables** — `ensureTable()` recreates missing SQL tables from registered config when the registry is intact but the table was dropped (DB reset, partial restore). **139 backend + 28 receiver tests**.
 

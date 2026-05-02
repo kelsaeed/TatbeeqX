@@ -165,7 +165,41 @@ If you want to test the cloud-DB path locally:
 
 ---
 
-## 7. Optional — webhook receiver / off-site backup tools
+## 7. Optional — outbound email (SMTP)
+
+Email is **off by default**. The system stays fully functional without it — emails just stub out (printed to console in dev, silent no-op in prod). Wire it up when you want any of:
+
+- Self-serve "Forgot password?" flow ([POST /api/auth/forgot-password](backend/src/routes/auth.js)).
+- Email notifications when an approval request is approved or rejected (in-app notifications still fire either way).
+- The workflow engine's `send_email` action ([docs/48-workflow-engine.md](docs/48-workflow-engine.md)).
+
+It's vendor-neutral SMTP — pick any provider:
+
+- **Transactional API with an SMTP relay** — Resend, Postmark, SendGrid, Mailgun, AWS SES (use their SMTP endpoint, not their HTTP API).
+- **Self-hosted Postfix** on the same LAN.
+- **Gmail / Workspace** with an [App Password](https://support.google.com/accounts/answer/185833).
+
+In `backend/.env`:
+
+```ini
+SMTP_HOST=smtp.your-provider.com
+SMTP_PORT=587
+SMTP_SECURE=false           # true for port 465 (implicit TLS), false for 587 (STARTTLS)
+SMTP_USER=apikey-or-username
+SMTP_PASS=your-secret
+SMTP_FROM="TatbeeqX <no-reply@your-domain.com>"
+
+# Public app URL — used inside email links (password reset, etc.)
+APP_URL=https://your-public-url
+```
+
+Restart the backend. To verify, hit `POST /api/auth/forgot-password` with `{"identifier":"superadmin"}` — you should see the email arrive, and the audit log records `password_reset.requested`.
+
+To make the workflow `send_email` action **fail loudly** when SMTP isn't configured (default is "step succeeds with `stubbed:true`" so chains compose on dev boxes), set `BAIL_ON_NO_SMTP=1`.
+
+---
+
+## 8. Optional — webhook receiver / off-site backup tools
 
 If you also want to run [tools/backup-sync/](tools/backup-sync/) for cross-host backup replication (Phase 4.10):
 
@@ -175,11 +209,11 @@ If you also want to run [tools/backup-sync/](tools/backup-sync/) for cross-host 
 
 ---
 
-## 8. First-time setup commands
+## 9. First-time setup commands
 
 After all the install steps for your chosen platforms, from the project root:
 
-### 8.1 Backend
+### 9.1 Backend
 
 ```
 cd backend
@@ -191,7 +225,7 @@ npm run dev                   # API on http://localhost:4000
 
 `npm run db:reset` is idempotent — re-run it anytime to start clean.
 
-### 8.2 Frontend
+### 9.2 Frontend
 
 ```
 cd frontend
@@ -208,7 +242,7 @@ password: ChangeMe!2026
 
 (overridable via `SEED_SUPERADMIN_USERNAME` / `SEED_SUPERADMIN_PASSWORD` env vars in `backend/.env`.)
 
-### 8.3 LAN dev with mobile
+### 9.3 LAN dev with mobile
 
 Physical Android / iOS devices can't reach `localhost` — use the host machine's LAN IP:
 
@@ -221,7 +255,7 @@ Android emulators can use `http://10.0.2.2:4000/api` (the emulator's loopback to
 
 ---
 
-## 9. Verifying the install
+## 10. Verifying the install
 
 From `frontend/`:
 
@@ -237,11 +271,13 @@ From `backend/`:
 npm test
 ```
 
-Expect a passing vitest run (~166 tests as of Phase 4.15).
+Expect a passing vitest run (340 tests / 28 files as of Phase 4.19, plus 8 cross-language webhook tests that auto-skip on machines without Python/Go/PHP/Bash on PATH).
+
+CI runs the same suite plus `flutter analyze` on every push to `main` and every pull request — see [.github/workflows/ci.yml](.github/workflows/ci.yml).
 
 ---
 
-## 10. Common gotchas
+## 11. Common gotchas
 
 - **JDK version mismatch.** `flutter build apk` failing with a terse `What went wrong: 26.0.1` (or any single number) means the JDK is too new for AGP. Re-point Flutter at JDK 17 or 21: `flutter config --jdk-dir "<path>"`.
 - **Missing Windows Developer Mode.** Symptom: *"Building with plugins requires symlink support."* Fix: turn Developer Mode on.
@@ -249,10 +285,13 @@ Expect a passing vitest run (~166 tests as of Phase 4.15).
 - **`flutter gen-l10n` after editing ARBs.** After modifying any `frontend/lib/l10n/app_*.arb`, regenerate via `flutter gen-l10n` (or just `flutter run` — it does it for you). The generated class lives at `frontend/lib/l10n/gen/app_localizations.dart`.
 - **ARB format drift.** `flutter gen-l10n` reformats ARBs to multi-line placeholder blocks. After the first generation, subsequent edits must match the new format, not the original compact one.
 - **Mobile + LAN HTTP.** Android cleartext + iOS ATS exception are pre-configured for LAN dev (Phase 4.14). Tighten before App Store / Play submission — don't ship those defaults.
+- **`Forgot password?` returns 503.** That's the correct response when SMTP isn't configured — see section 7. Either wire up SMTP, or use the admin-token reset path: `POST /api/users/:id/password-reset` (Super Admin or `users.edit`) and share the returned token out of band.
+- **`prisma migrate dev` is non-interactive in this shell.** Local schema changes use `npx prisma db push --accept-data-loss --skip-generate` for speed. When the schema is stable, generate a real migration with `npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --script` to avoid CI drift.
+- **Workflow `notify_user` action says "could not resolve user".** The action takes `userId` OR `username` OR `email`. First match wins; the resolver returns null for a user that's been deleted/disabled, which surfaces as a step failure. Use a stable username for cross-install workflows (templates re-create users with new ids).
 
 ---
 
-## 11. Reference summary — every install in one table
+## 12. Reference summary — every install in one table
 
 | Tool | Required for | Where to get it |
 |---|---|---|
@@ -268,3 +307,4 @@ Expect a passing vitest run (~166 tests as of Phase 4.15).
 | Docker Desktop | Postgres dev loop (optional) | [docker.com](https://www.docker.com/products/docker-desktop/) |
 | `pg_dump` / `mysqldump` | Native cloud-DB backups (optional) | Postgres / MySQL official installers |
 | `restic` | restic-mode backup-sync receiver (optional) | [restic.net](https://restic.net/) |
+| SMTP server / relay | Outbound email (optional, Phase 4.19) | Any provider — Resend, Postmark, SendGrid, SES, Postfix, Gmail App Password |

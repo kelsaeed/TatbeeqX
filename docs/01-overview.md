@@ -59,6 +59,8 @@ Patterns in use: Repository (data layer), Singleton (Riverpod providers), Depend
 
 | You want to … | Open … |
 |---|---|
+| use the app as an end user | [docs/49-user-manual.md](49-user-manual.md) |
+| see project status (current phase) | [docs/18-phases.md](18-phases.md) |
 | understand the data model | [backend/prisma/schema.prisma](../backend/prisma/schema.prisma) |
 | see what gets seeded | [backend/prisma/seed.js](../backend/prisma/seed.js) |
 | trace an HTTP request | [backend/src/server.js](../backend/src/server.js) → `routes/index.js` → the route file |
@@ -69,3 +71,7 @@ Patterns in use: Repository (data layer), Singleton (Riverpod providers), Depend
 | design a new table from the UI | [docs/11-custom-entities.md](11-custom-entities.md) |
 | run SQL safely | [docs/12-database-admin.md](12-database-admin.md) |
 | capture or import a setup | [docs/14-templates.md](14-templates.md) |
+| automate something on an event | [docs/48-workflow-engine.md](48-workflow-engine.md) |
+| understand the approvals queue | [docs/25-workflows.md](25-workflows.md) |
+| wire outbound webhooks | [docs/27-webhooks.md](27-webhooks.md) |
+| ship a customer-branded build | [docs/44-subsystem-builds.md](44-subsystem-builds.md) |

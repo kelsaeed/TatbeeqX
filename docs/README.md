@@ -7,7 +7,8 @@ If you are starting a brand-new session, read these in order:
 1. [01-overview.md](01-overview.md) — what the system is, who it is for, and the design goals
 2. [02-tech-stack.md](02-tech-stack.md) — runtimes, dependencies, conventions
 3. [03-getting-started.md](03-getting-started.md) — first-time setup and how to run it
-4. [18-phases.md](18-phases.md) — phase status (where we are right now)
+4. [49-user-manual.md](49-user-manual.md) — end-user manual: sign in, password reset, 2FA, working with every module
+5. [18-phases.md](18-phases.md) — phase status (where we are right now)
 
 The rest is reference.
 
@@ -59,6 +60,8 @@ The rest is reference.
 - [42-translation-management.md](42-translation-management.md) — ARB editor over the API + UI
 - [44-subsystem-builds.md](44-subsystem-builds.md) — branded, locked-down customer binaries
 - [45-mobile-shell.md](45-mobile-shell.md) — iOS + Android shells (Phase 4.14)
+- [48-workflow-engine.md](48-workflow-engine.md) — workflow engine: triggers + actions + conditions (Phase 4.17)
+- [49-user-manual.md](49-user-manual.md) — end-user manual (Phase 4.19)
 
 ### Operations
 - [16-deployment.md](16-deployment.md) — LAN today, cloud later
