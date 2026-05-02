@@ -44,6 +44,7 @@ import '../features/backups/presentation/backups_page.dart';
 import '../features/translations/presentation/translations_page.dart';         // MOD: translations
 import '../features/translations/presentation/translations_editor_page.dart';  // MOD: translations
 import '../features/sessions/presentation/sessions_page.dart';
+import '../features/notifications/presentation/notifications_page.dart';
 
 // IMPORTANT: do NOT `ref.watch` auth/setup at the provider level here.
 // Doing so rebuilds the GoRouter on every auth/setup state change, which
@@ -153,6 +154,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           // gating since every account needs to manage its own
           // refresh tokens.
           GoRoute(path: '/sessions', builder: (_, __) => const SessionsPage()),
+          // Phase 4.18 — per-account, no module gating (every user
+          // manages their own notification tray).
+          GoRoute(path: '/notifications', builder: (_, __) => const NotificationsPage()),
           // MOD-BEGIN: translations
           GoRoute(
             path: '/translations',

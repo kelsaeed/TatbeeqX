@@ -608,3 +608,26 @@ model WorkflowRunStep {
 
   @@index([runId])
 }
+
+// Phase 4.18 — in-app notifications. Per-user, no broadcast (yet).
+// Created either by the workflow engine's `notify_user` action or by
+// any backend code that imports `lib/notifications.js#notify`. The
+// frontend topbar bell polls `unread-count` and a notifications page
+// (or popover) renders the list.
+//
+// `kind` is a free-text discriminator for client-side icon/colour
+// (e.g. 'workflow', 'approval', 'system'). `link` is an optional
+// in-app route the user can tap to jump to the relevant page.
+model Notification {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  kind      String    @default("system")
+  title     String
+  body      String?
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+}

@@ -27,6 +27,9 @@ export const ACTION_TYPES = [
   'dispatch_event',
   'create_approval',
   'log',
+  // Phase 4.18 — in-app notification fan-out. Resolves the target user
+  // by `userId` | `username` | `email` (first match wins).
+  'notify_user',
 ];
 export const RECORD_OPS = ['created', 'updated', 'deleted'];
 
@@ -272,6 +275,18 @@ const HANDLERS = {
     const lvl = ['info', 'warn', 'error', 'debug'].includes(level) ? level : 'info';
     await logSystem(lvl, 'workflow', String(message).slice(0, 500), context ?? null);
     return { ok: true };
+  },
+
+  async notify_user(params) {
+    const { userId, username, email, kind = 'workflow', title, body, link } = params;
+    if (!title) throw new Error('notify_user: title required');
+    const { resolveUserId, notify } = await import('./notifications.js');
+    const targetId = await resolveUserId({ userId, username, email });
+    if (!targetId) {
+      throw new Error('notify_user: could not resolve user (need userId, username, or email)');
+    }
+    const created = await notify(targetId, { kind, title, body, link });
+    return { id: created.id, userId: targetId };
   },
 };
 

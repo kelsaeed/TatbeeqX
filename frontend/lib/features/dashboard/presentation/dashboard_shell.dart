@@ -10,6 +10,7 @@ import '../../../core/subsystem/subsystem_info.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../core/theme/theme_settings.dart';
 import '../../../l10n/gen/app_localizations.dart';
+import '../../notifications/presentation/notifications_bell.dart';
 import '../../../shared/widgets/icon_lookup.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../menus/menu_controller.dart';
@@ -369,6 +370,10 @@ class _TopBar extends ConsumerWidget {
           const SizedBox(width: 12),
           const _LocaleSwitcher(),
           const Spacer(),
+          // Phase 4.18 — in-app notifications. Polls /unread-count every
+          // 45s, popover renders /notifications.
+          const NotificationsBell(),
+          const SizedBox(width: 4),
           PopupMenuButton<String>(
             tooltip: t.account,
             onSelected: (v) {

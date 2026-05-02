@@ -63,8 +63,9 @@ What the trigger handler hands the action runner as `context.trigger`:
 | `dispatch_event` | Fire `dispatchEvent` so other workflows / webhooks can chain | `event` (string), `payload` (object) |
 | `create_approval` | Create an `ApprovalRequest` | `entity`, `entityId?`, `title`, `description?`, `payload?` |
 | `log` | Write a `SystemLog` row, for debugging chains | `level` (`info`/`warn`/`error`), `message`, `context?` (object) |
+| `notify_user` (Phase 4.18) | Create an in-app notification for a single user. Resolves target by `userId` \| `username` \| `email` (first match wins); fails the step if no user resolves | `userId?`, `username?`, `email?`, `kind?` (default `'workflow'`), `title`, `body?`, `link?` (in-app route) |
 
-Deferred: send_email (no SMTP yet), run_sql (admin gun, want to think hard about this one), send_slack (use `http_request` for now).
+Deferred: send_email (no SMTP yet), run_sql (admin gun, want to think hard about this one), send_slack (use `http_request` for now), broadcast notifications (notify-by-role) — exposed in `lib/notifications.js#notifyRole` for direct callers but not yet through the workflow action.
 
 ### Conditional logic
 

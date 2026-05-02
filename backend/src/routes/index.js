@@ -29,6 +29,7 @@ import approvals from './approvals.js';               // MOD: approvals
 import reportSchedules from './report_schedules.js';  // MOD: report-schedules
 import webhooks from './webhooks.js';                 // MOD: webhooks
 import workflows from './workflows.js';               // MOD: workflows
+import notifications from './notifications.js';       // MOD: notifications
 import admin from './admin.js';
 import subsystem from './subsystem.js';
 
@@ -65,6 +66,7 @@ router.use('/approvals', approvals);            // MOD: approvals
 router.use('/report-schedules', reportSchedules); // MOD: report-schedules
 router.use('/webhooks', webhooks);              // MOD: webhooks
 router.use('/workflows', workflows);            // MOD: workflows
+router.use('/notifications', notifications);    // MOD: notifications
 router.use('/admin', admin);
 
 export default router;
