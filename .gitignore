@@ -69,6 +69,10 @@ Thumbs.db
 coverage/
 .vitest-cache/
 
+# --- Python bytecode (webhook-verify helpers) ---
+__pycache__/
+*.pyc
+
 # --- Logs ---
 *.log
 
