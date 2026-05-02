@@ -46,7 +46,10 @@ jobs:
           DATABASE_URL: 'file:./dev.db'
 
       - name: Run vitest
-        run: npm test
+        # `verbose` prints each test name; `github-actions` annotates
+        # failures inline in the PR/commit view. Both reporters run, so
+        # the failing assertion is one click away.
+        run: npx vitest run --reporter=verbose --reporter=github-actions
         env:
           DATABASE_URL: 'file:./dev.db'
 

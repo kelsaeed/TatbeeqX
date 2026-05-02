@@ -40,10 +40,12 @@ function uid() {
 
 // Wait for any fire-and-forget runs to flush. The engine awaits the
 // run inside the dispatcher, but `dispatchTo` schedules each runWorkflow
-// without await; tiny tick is enough.
+// without await. 30ms was enough on a fast workstation, but a cold CI
+// runner needs more headroom — bumped to 250ms after seeing flakiness
+// on the first GitHub Actions run.
 async function flush() {
   await new Promise((resolve) => setImmediate(resolve));
-  await new Promise((resolve) => setTimeout(resolve, 30));
+  await new Promise((resolve) => setTimeout(resolve, 250));
 }
 
 describe('POST /api/workflows — CRUD + validation', () => {
