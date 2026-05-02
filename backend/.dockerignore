@@ -1,0 +1,12 @@
+node_modules
+.git
+.env
+.env.*
+.env-backups
+uploads
+prisma/dev.db
+prisma/dev.db-journal
+prisma/migrations
+*.log
+*.md
+tests

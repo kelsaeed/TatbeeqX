@@ -1,0 +1,21 @@
+{
+  "name": "tatbeeqx-backup-sync",
+  "version": "0.2.0",
+  "description": "Webhook receiver that copies backup files off-site when the API fires backup.created. Optionally uploads via native S3 or restic.",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node receiver.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "express": "^4.21.1"
+  },
+  "devDependencies": {
+    "supertest": "^7.2.2",
+    "vitest": "^4.1.5"
+  }
+}

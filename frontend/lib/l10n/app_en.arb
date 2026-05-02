@@ -1,0 +1,964 @@
+{
+  "@@locale": "en",
+  "appName": "TatbeeqX",
+  "@appName": {
+    "description": "Application name as shown in titles"
+  },
+  "signIn": "Sign in",
+  "signInToContinue": "Sign in to continue",
+  "usernameOrEmail": "Username or email",
+  "password": "Password",
+  "signOut": "Sign out",
+  "loginTagline": "LAN-ready • secured by JWT",
+  "manageEveryBusiness": "Manage every business,",
+  "inOnePlace": "in one place.",
+  "loginHeroSubtitle": "Multi-company, multi-branch, role-based, fully customizable.",
+  "save": "Save",
+  "cancel": "Cancel",
+  "delete": "Delete",
+  "edit": "Edit",
+  "create": "Create",
+  "newItem": "New",
+  "search": "Search",
+  "loading": "Loading…",
+  "error": "Error",
+  "noData": "No data",
+  "ok": "OK",
+  "yes": "Yes",
+  "no": "No",
+  "refresh": "Refresh",
+  "saving": "Saving…",
+  "required": "Required",
+  "company": "Company",
+  "noCompany": "No company",
+  "globalTheme": "— Global theme —",
+  "switchCompany": "Switch company",
+  "language": "Language",
+  "account": "Account",
+  "superAdmin": "Super Admin",
+  "user": "User",
+  "dashboard": "Dashboard",
+  "users": "Users",
+  "roles": "Roles",
+  "companies": "Companies",
+  "branches": "Branches",
+  "audit": "Audit Logs",
+  "settings": "Settings",
+  "appearance": "Appearance",
+  "reports": "Reports",
+  "database": "Database",
+  "customEntities": "Custom entities",
+  "templates": "Templates",
+  "pages": "Pages",
+  "system": "System",
+  "systemLogs": "System Logs",
+  "loginActivity": "Login Activity",
+  "approvals": "Approvals",
+  "reportSchedules": "Report Schedules",
+  "webhooks": "Webhooks",
+  "backups": "Backups",
+  "deleteConfirm": "Delete \"{name}\"?",
+  "@deleteConfirm": {
+    "description": "Generic delete-confirmation dialog content",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "loadFailed": "Load failed: {error}",
+  "@loadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "saveFailed": "Save failed: {error}",
+  "@saveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteFailedMsg": "Delete failed: {error}",
+  "@deleteFailedMsg": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "createFailed": "Create failed: {error}",
+  "@createFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "adminRestricted": "{feature} is restricted to Super Admin",
+  "@adminRestricted": {
+    "placeholders": {
+      "feature": {
+        "type": "String"
+      }
+    }
+  },
+  "apply": "Apply",
+  "activate": "Activate",
+  "duplicate": "Duplicate",
+  "resetLabel": "Reset",
+  "run": "Run",
+  "importLabel": "Import",
+  "exportLabel": "Export",
+  "add": "Add",
+  "remove": "Remove",
+  "close": "Close",
+  "back": "Back",
+  "name": "Name",
+  "code": "Code",
+  "email": "Email",
+  "statusLabel": "Status",
+  "typeLabel": "Type",
+  "defaultLabel": "Default",
+  "actionsLabel": "Actions",
+  "descriptionLabel": "Description",
+  "systemChip": "System",
+  "enabledLabel": "Enabled",
+  "disabledLabel": "Disabled",
+  "active": "Active",
+  "inactive": "Inactive",
+  "all": "All",
+  "noneLabel": "None",
+  "pageOfTotal": "Page {page} of {total}",
+  "@pageOfTotal": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "permissionsCount": "{count, plural, =0{No permissions} =1{1 permission} other{{count} permissions}}",
+  "@permissionsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "usersCount": "{count, plural, =0{No users} =1{1 user} other{{count} users}}",
+  "@usersCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "rolesSubtitle": "Define roles and assign granular permissions.",
+  "auditSubtitle": "A timeline of every important system action.",
+  "backupsSubtitle": "Snapshots of the primary database. Restore overwrites the current DB and requires a restart.",
+  "reportsSubtitle": "Pre-built reports. Run them to view fresh data.",
+  "dashboardSubtitle": "Here is a quick overview of your system.",
+  "loginFailed": "Login failed",
+  "searchHint": "Search…",
+  "totalLabel": "{count} total",
+  "@totalLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileNotFound": "File not found: {path}",
+  "@fileNotFound": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "uploaded": "Uploaded",
+  "uploadFailed": "Upload failed: {error}",
+  "@uploadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "upload": "Upload",
+  "uploading": "Uploading…",
+  "uploadHint": "…or paste a local file path (e.g. C:\\images\\logo.png) and press Upload",
+  "urlHint": "URL",
+  "restore": "Restore",
+  "auditWhen": "When",
+  "auditUser": "User",
+  "auditAction": "Action",
+  "auditEntity": "Entity",
+  "auditId": "ID",
+  "auditIp": "IP",
+  "systemUserLabel": "system",
+  "createBackup": "Create backup",
+  "backupLabelField": "Label (optional, lowercase + dashes)",
+  "backupLabelExample": "e.g. before-month-end",
+  "deleteBackupTitle": "Delete backup?",
+  "deleteBackupWarn": "This permanently removes \"{name}\" from disk.",
+  "@deleteBackupWarn": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "restoreBackupTitle": "Restore backup?",
+  "restoreBackupWarn": "This overwrites the current database with \"{name}\". After restore, the API process must be restarted before changes take effect.\n\nData created since this backup will be lost.",
+  "@restoreBackupWarn": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "restoreCompleteRestart": "Restore complete. Restart required.",
+  "noBackupsYet": "No backups yet. Click \"New backup\".",
+  "noReportsDefined": "No reports defined",
+  "noPermissionReports": "You do not have permission to view reports.",
+  "auditEventsLast14": "Audit events — last 14 days",
+  "auditByEntityLast30": "Audit by entity — last 30 days",
+  "recentLogins": "Recent logins",
+  "recentAuditEvents": "Recent audit events",
+  "noActivityYet": "No activity yet",
+  "noDataYet": "No data yet",
+  "noAuditEntriesYet": "No audit entries yet",
+  "auditEventsCount": "Audit events",
+  "failedShort": "Failed: {error}",
+  "@failedShort": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "username": "Username",
+  "fullName": "Full name",
+  "phoneOptional": "Phone (optional)",
+  "phone": "Phone",
+  "address": "Address",
+  "legalName": "Legal name",
+  "taxNumber": "Tax number",
+  "logoUrl": "Logo URL",
+  "passwordField": "Password",
+  "newPasswordKeepBlank": "New password (leave blank to keep)",
+  "min8Chars": "Min 8 characters",
+  "invalidEmail": "Invalid email",
+  "noneOption": "— None —",
+  "branchField": "Branch",
+  "companyField": "Company",
+  "rolesField": "Roles",
+  "deleteCannotBeUndone": "Delete \"{name}\"? This cannot be undone.",
+  "@deleteCannotBeUndone": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteCascadeWarn": "Delete \"{name}\"? Branches and related data will cascade.",
+  "@deleteCascadeWarn": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "selectCompany": "Select a company",
+  "noBranches": "No branches",
+  "branchesCount": "{count, plural, =0{No branches} =1{1 branch} other{{count} branches}}",
+  "@branchesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "usersSubtitle": "Create and manage system users.",
+  "newUser": "New user",
+  "editUser": "Edit user",
+  "deleteUser": "Delete user",
+  "searchUsers": "Search users…",
+  "companiesSubtitle": "Each company can have its own branches, users, and theme.",
+  "newCompany": "New company",
+  "editCompany": "Edit company",
+  "deleteCompany": "Delete company",
+  "codeColon": "Code: {code}",
+  "@codeColon": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "branchesSubtitle": "Branches belong to companies.",
+  "newBranch": "New branch",
+  "editBranch": "Edit branch",
+  "deleteBranch": "Delete branch",
+  "settingsSubtitle": "System-wide key/value settings. Anything marked \"public\" is visible without auth.",
+  "addRow": "Add row",
+  "settingsSaved": "Settings saved",
+  "keyField": "Key",
+  "valueField": "Value",
+  "typeField": "Type",
+  "publicLabel": "Public",
+  "noSettingsYet": "No settings yet",
+  "loginActivitySubtitle": "Every login, refresh, logout, and failed attempt.",
+  "eventField": "Event",
+  "allEvents": "All events",
+  "loginEvent": "Login",
+  "logoutEvent": "Logout",
+  "refreshEvent": "Refresh",
+  "successField": "Success",
+  "successfulOption": "Successful",
+  "failedOption": "Failed",
+  "searchLoginEvents": "Search by username, IP, or user agent…",
+  "resultColumn": "Result",
+  "okShort": "OK",
+  "failShort": "FAIL",
+  "reasonColumn": "Reason",
+  "systemLogsSubtitle": "Server-side events: startup, errors, warnings, info.",
+  "clearOlderThan30": "Clear older than 30 days",
+  "clearOldLogsTitle": "Clear old logs?",
+  "clearOldLogsBody": "Delete every system log older than 30 days. This cannot be undone.",
+  "levelField": "Level",
+  "allLevels": "All levels",
+  "levelDebug": "Debug",
+  "levelInfo": "Info",
+  "levelWarn": "Warning",
+  "levelError": "Error",
+  "sourceField": "Source",
+  "searchMessageContext": "Search message or context…",
+  "messageField": "Message",
+  "webhooksSubtitle": "POST notifications to external URLs when system events fire. HMAC-signed.",
+  "newWebhook": "New webhook",
+  "noSubscriptionsYet": "No subscriptions yet.",
+  "enableLabel": "Enable",
+  "disableLabel": "Disable",
+  "sendTestEvent": "Send test event",
+  "recentDeliveries": "Recent deliveries",
+  "testEventDispatched": "Test event dispatched",
+  "deleteSubscriptionTitle": "Delete subscription?",
+  "deleteSubscriptionBody": "Removes the subscription and all delivery history.",
+  "recentDeliveriesFor": "Recent deliveries — {name}",
+  "@recentDeliveriesFor": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noDeliveriesYet": "No deliveries yet.",
+  "newWebhookSubscription": "New webhook subscription",
+  "codeLowerSnake": "Code (lowercase, snake_case)",
+  "urlHttps": "URL (https://...)",
+  "secretOptionalAuto": "Secret (optional — auto-generated if blank)",
+  "eventsLabel": "Events",
+  "pickAtLeastOneEvent": "Pick at least one event",
+  "webhookSecretTitle": "Webhook secret",
+  "webhookSecretSaveWarn": "Save this secret somewhere safe — it will not be shown again:\n\n{secret}",
+  "@webhookSecretSaveWarn": {
+    "placeholders": {
+      "secret": {
+        "type": "String"
+      }
+    }
+  },
+  "approvalsSubtitle": "Pending requests waiting for someone with <entity>.approve.",
+  "newRequest": "New request",
+  "statusPending": "Pending",
+  "statusApproved": "Approved",
+  "statusRejected": "Rejected",
+  "statusCancelled": "Cancelled",
+  "approveLabel": "Approve",
+  "rejectLabel": "Reject",
+  "approveTitle": "Approve request?",
+  "rejectTitle": "Reject request?",
+  "noteOptional": "Note (optional)",
+  "requestApproval": "Request approval",
+  "entityProductsHint": "Entity (e.g. products)",
+  "titleField": "Title",
+  "submitLabel": "Submit",
+  "approvalsRequestedBy": "Requested by",
+  "approvalsTitleColumn": "Title",
+  "setupLocked": "Setup is locked. Ask the Super Admin to choose a business type.",
+  "welcomePickBusinessType": "Welcome — pick a business type",
+  "setupExplain": "This decides the starter modules, tables and menus. You can always change everything later, add new tables and run SQL from the Database admin page.",
+  "alreadyConfiguredHint": "Already configured? Visit the Custom Entities and Database pages to add new tables, edit columns or run SQL.",
+  "skipAndContinue": "Skip and continue",
+  "useThis": "Use this",
+  "applyFailed": "Apply failed: {error}",
+  "@applyFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteRowTitle": "Delete row",
+  "newEntitySingular": "New {singular}",
+  "@newEntitySingular": {
+    "placeholders": {
+      "singular": {
+        "type": "String"
+      }
+    }
+  },
+  "editEntitySingular": "Edit {singular}",
+  "@editEntitySingular": {
+    "placeholders": {
+      "singular": {
+        "type": "String"
+      }
+    }
+  },
+  "tableLabel": "Table: {tableName}",
+  "@tableLabel": {
+    "placeholders": {
+      "tableName": {
+        "type": "String"
+      }
+    }
+  },
+  "searchEntityHint": "Search {label}…",
+  "@searchEntityHint": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "customEntitiesAdminRestricted": "Custom Entities admin is restricted to Super Admin.",
+  "customEntitiesSubtitle": "Tables tailored to your business. Each entity gets its own permissions, menu item and CRUD page.",
+  "newEntity": "New entity",
+  "editEntity": "Edit entity",
+  "noCustomEntitiesYet": "No custom entities yet.",
+  "deleteEntityTitle": "Delete \"{label}\"",
+  "@deleteEntityTitle": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteEntityBody": "You can either keep the underlying table (data preserved, only the registration is removed) or drop it (irreversible).",
+  "unregisterOnly": "Unregister only",
+  "dropTable": "Drop table",
+  "addColumn": "Add column",
+  "addAtLeastOneColumn": "Add at least one column",
+  "codeUsedInUrl": "Code (used in URL & API)",
+  "sqlTableName": "SQL table name",
+  "displayLabelPlural": "Display label (plural)",
+  "singularName": "Singular name",
+  "categoryField": "Category",
+  "iconNameField": "Icon name",
+  "iconNameHint": "reports, business, store, …",
+  "columnsLabel": "Columns",
+  "systemEntitiesAlterWarn": "System entities — column edits are not yet propagated to the SQL table. Use the Database admin to ALTER manually.",
+  "updateLabel": "Update",
+  "fieldNameSnakeCase": "Field name (snake_case)",
+  "labelField": "Label",
+  "requiredLabel": "Required",
+  "uniqueLabel": "Unique",
+  "searchableLabel": "Searchable",
+  "showInList": "Show in list",
+  "starterTablesCount": "{count, plural, =0{No starter tables} =1{1 starter table} other{{count} starter tables}}",
+  "@starterTablesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "columnsCount": "{count, plural, =0{No columns} =1{1 column} other{{count} columns}}",
+  "@columnsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reportSchedulesSubtitle": "Run any report on a recurring cadence. Results are stored on each schedule.",
+  "newSchedule": "New schedule",
+  "noSchedulesYet": "No schedules yet. Click \"New schedule\".",
+  "runNow": "Run now",
+  "recentRuns": "Recent runs",
+  "runSucceeded": "Run succeeded",
+  "runFailedMsg": "Run failed: {error}",
+  "@runFailedMsg": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteScheduleTitle": "Delete schedule?",
+  "deleteScheduleBody": "This stops future runs and removes the schedule + its run history.",
+  "recentRunsFor": "Recent runs — {name}",
+  "@recentRunsFor": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noRunsYet": "No runs yet.",
+  "noReportsDefinedYet": "No reports defined yet.",
+  "templatesSubtitle": "Snapshot the current theme + custom tables. Re-apply later or share between installs.",
+  "templatesRestricted": "Templates are restricted to Super Admin.",
+  "saveCurrentSetup": "Save current setup as template",
+  "saveCurrent": "Save current",
+  "importJson": "Import JSON",
+  "noTemplatesYet": "No templates yet.",
+  "applyTemplateTitle": "Apply \"{name}\"?",
+  "@applyTemplateTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "applyTemplateBody": "This will register all custom tables and activate the theme from the template. Existing tables with the same name are kept (only the registration is updated).",
+  "templateSaved": "Template saved",
+  "templateApplied": "Template applied",
+  "copiedJsonToClipboard": "Copied JSON to clipboard",
+  "exportFailed": "Export failed: {error}",
+  "@exportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "importTemplateTitle": "Import template",
+  "templateImported": "Template imported",
+  "importFailed": "Import failed: {error}",
+  "@importFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "invalidJson": "Invalid JSON: {error}",
+  "@invalidJson": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteTemplateTitle": "Delete template",
+  "copyJson": "Copy JSON",
+  "applyAction": "Apply",
+  "pagesSubtitle": "Custom pages composed from blocks. Designed in the page builder.",
+  "newPage": "New page",
+  "noPagesYet": "No custom pages yet. Click \"New page\" to design one.",
+  "deletePageTitle": "Delete page?",
+  "deletePageBody": "Removes the page and all its blocks.",
+  "openInBuilder": "Open in builder",
+  "openPage": "Open page",
+  "pagesStatLabel": "Pages",
+  "blocksStatLabel": "Blocks",
+  "avgBlocksPerPage": "Avg blocks / page",
+  "blockUsage": "Block usage",
+  "addBlock": "Add block",
+  "emptyPageHint": "Empty page. Add blocks from the right panel.",
+  "themeBuilderRestricted": "Theme Builder is restricted to Super Admin.",
+  "themeBuilderTitle": "Theme Builder",
+  "themeBuilderEditing": "Editing \"{name}\"",
+  "@themeBuilderEditing": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "saveAndActivate": "Save & activate",
+  "themeActivated": "Theme activated",
+  "themeSavedMsg": "Theme saved",
+  "systemSubtitle": "Server information, database connections, and configuration.",
+  "databaseConnectionsHeader": "Database connections",
+  "addConnectionLabel": "Add connection",
+  "noConnectionsYet": "No connections yet. Add one to switch the database from the UI.",
+  "primaryChip": "PRIMARY",
+  "promoteToPrimary": "Promote to primary",
+  "promoteToPrimaryTitle": "Promote to primary?",
+  "promoteWarn": "This rewrites DATABASE_URL in .env. The server must be restarted before changes take effect, and the new database must already have the schema. A backup of the previous .env is kept under .env-backups/.",
+  "promoteAction": "Promote",
+  "updatedRestartRequired": "Updated. Restart required.",
+  "deleteConnectionTitle": "Delete connection?",
+  "deleteConnectionBody": "Removes the saved connection from the registry. Does not affect the database itself.",
+  "initDatabaseHeader": "Initialize database with SQL",
+  "initDatabaseHint": "Paste CREATE TABLE / ALTER TABLE / INSERT statements separated by semicolons. Statements run in order.",
+  "runStatements": "Run statements",
+  "running": "Running…",
+  "addDatabaseConnection": "Add database connection",
+  "databaseSubtitle": "Inspect tables, preview rows, run SQL. All queries are audited.",
+  "databaseRestricted": "Database admin is restricted to Super Admin.",
+  "describeFailed": "Describe failed: {error}",
+  "@describeFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "runWriteQueryTitle": "Run write query?",
+  "runWriteQueryBody": "You are about to run SQL with write mode enabled. Make sure you know what this does. Core auth tables are still protected.",
+  "saveQueryTitle": "Save query",
+  "querySavedMsg": "Query saved",
+  "sqlRunner": "SQL runner",
+  "writeMode": "Write mode",
+  "savedQueriesHeader": "Saved queries",
+  "nothingSavedYet": "Nothing saved yet.",
+  "loadAction": "Load",
+  "noRowsReturnedMsg": "No rows returned ({count}).",
+  "@noRowsReturnedMsg": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "columnsHeader": "Columns",
+  "foreignKeysHeader": "Foreign keys",
+  "previewHeader": "Preview (first {count} rows)",
+  "@previewHeader": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "editSubsystemTooltip": "Edit branding & modules",
+  "editSubsystemTitle": "Branding & modules — {name}",
+  "@editSubsystemTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "brandingSection": "Branding",
+  "modulesSection": "Modules",
+  "modulesHelp": "Core modules (dashboard, users, etc.) are merged in automatically — list only the additional sidebar items this subsystem should expose.",
+  "subsystemSaved": "Subsystem settings saved",
+  "appNameLabel": "App name",
+  "logoUrlLabel": "Logo URL",
+  "primaryColorLabel": "Primary color",
+  "iconPathLabel": "Icon path (.ico)",
+  "addModuleLabel": "Add module code",
+  "addBlockHeader": "Add block",
+  "blockTypeText": "Text",
+  "blockTypeHeading": "Heading",
+  "blockTypeImage": "Image",
+  "blockTypeButton": "Button",
+  "blockTypeCard": "Card",
+  "blockTypeContainer": "Container",
+  "blockTypeDivider": "Divider",
+  "blockTypeSpacer": "Spacer",
+  "blockTypeList": "List",
+  "blockTypeTable": "Table",
+  "blockTypeChart": "Chart",
+  "blockTypeIframe": "Embed (iframe)",
+  "blockTypeHtml": "Raw HTML",
+  "blockTypeCustomEntityList": "Custom entity list",
+  "blockTypeReport": "Report",
+  "inspectorEditTitle": "Edit {label}",
+  "@inspectorEditTitle": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "inspectorTitleText": "Edit Text",
+  "inspectorTitleHeading": "Edit Heading",
+  "inspectorTitleImage": "Edit Image",
+  "inspectorTitleButton": "Edit Button",
+  "inspectorTitleCard": "Edit Card",
+  "inspectorTitleSpacer": "Edit Spacer",
+  "inspectorTitleIframe": "Edit Iframe",
+  "inspectorTitleHtml": "Edit HTML",
+  "inspectorTitleReport": "Edit Report block",
+  "inspectorTitleEntityList": "Edit Custom-entity list",
+  "inspectorTitleDivider": "Divider",
+  "inspectorNoOptions": "No options to configure.",
+  "inspectorLevelLabel": "Level",
+  "inspectorH1": "H1 — display",
+  "inspectorH2": "H2 — headline",
+  "inspectorH3": "H3 — title",
+  "inspectorH4": "H4 — subtitle",
+  "inspectorImageUrlHint": "https://example.com/photo.jpg or /uploads/x.png",
+  "inspectorFitLabel": "Fit",
+  "inspectorFitCover": "Cover",
+  "inspectorFitContain": "Contain",
+  "inspectorFitFill": "Fill",
+  "inspectorRouteLabel": "Route (e.g. /products)",
+  "inspectorStyleLabel": "Style",
+  "inspectorVariantFilled": "Filled",
+  "inspectorVariantOutlined": "Outlined",
+  "inspectorVariantText": "Text",
+  "inspectorBodyLabel": "Body",
+  "inspectorHeightPxLabel": "Height (logical pixels)",
+  "inspectorHtmlNotice": "HTML is sanitized server-side. Scripts, on* handlers, and javascript: URLs are stripped.",
+  "inspectorReportCodeLabel": "Report code (e.g. users.by_role)",
+  "inspectorRenderAsLabel": "Render as",
+  "inspectorRenderAsTable": "Table",
+  "inspectorRenderAsChart": "Chart",
+  "inspectorEntityCodeLabel": "Entity code (e.g. products)",
+  "inspectorPageSizeLabel": "Page size",
+  "inspectorInvalidJson": "Invalid JSON: {error}",
+  "@inspectorInvalidJson": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "targetEntityLabel": "Target entity code",
+  "relationsAddLabel": "Add {target}",
+  "@relationsAddLabel": {
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "relationsLoadFailed": "Couldn't load options",
+  "relationsNoTarget": "No target entity configured",
+  "relationsEmpty": "—",
+  "exportCsv": "Export CSV",
+  "csvExportedTo": "Saved to {path}",
+  "@csvExportedTo": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "logoutEverywhereMenu": "Log out from all devices",
+  "logoutEverywhereTitle": "Log out from all devices?",
+  "logoutEverywhereBody": "This will end every active session for your account, on every device. You'll need to log in again on each one.",
+  "logoutEverywhereConfirm": "Log out everywhere",
+  "recordHistory": "History",
+  "noHistoryYet": "No history yet for this record.",
+  "systemActor": "System",
+  "formulaLabel": "Formula",
+  "formulaHelp": "Numeric expression. Use field names (qty, price) and operators + - * / ( ).",
+  "computedField": "Computed",
+  "computedHelp": "This value is calculated automatically from other fields.",
+  "importCsv": "Import CSV",
+  "importCsvHelp": "Paste CSV content. The first line must be a header row matching the entity's column names. Unknown columns are ignored. Run Preview first to see what would happen without writing anything.",
+  "previewAction": "Preview",
+  "importAction": "Import",
+  "previewBadge": "PREVIEW",
+  "importSummary": "{total} rows • {created} created • {skipped} skipped • {errCount} errors",
+  "@importSummary": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "created": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      },
+      "errCount": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkDeleteButton": "Delete {count}",
+  "@bulkDeleteButton": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkDeleteTitle": "Delete selected rows?",
+  "bulkDeleteConfirm": "{count, plural, =1{Delete 1 row?} other{Delete {count} rows?}} This cannot be undone.",
+  "@bulkDeleteConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkDeleteResult": "{count, plural, =0{Nothing deleted} =1{Deleted 1 row} other{Deleted {count} rows}}",
+  "@bulkDeleteResult": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionsTitle": "Active devices",
+  "sessionsSubtitle": "Sessions currently signed in to your account. Revoke any you don't recognize.",
+  "noActiveSessions": "No active sessions.",
+  "currentSessionBadge": "THIS DEVICE",
+  "sessionMeta": "Signed in {issuedAt} • Expires {expiresAt}",
+  "@sessionMeta": {
+    "placeholders": {
+      "issuedAt": {
+        "type": "String"
+      },
+      "expiresAt": {
+        "type": "String"
+      }
+    }
+  },
+  "revokeAction": "Revoke",
+  "revokeSessionTitle": "Revoke this session?",
+  "revokeSessionConfirm": "The device using this session will be signed out the next time it tries to refresh its access token.",
+  "revokeCurrentSessionWarn": "This is your current session. Revoking it will sign you out of this device immediately.",
+  "sessionRevoked": "Session revoked.",
+  "revokeFailed": "Couldn't revoke: {error}",
+  "@revokeFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "unknownDevice": "Unknown device",
+  "viewPermissionLabel": "View permission",
+  "editPermissionLabel": "Edit permission",
+  "fieldPermissionHelp": "Optional permission code. Leave blank to inherit the entity's permissions.",
+  "generateResetToken": "Generate password reset token",
+  "generateResetTokenTitle": "Generate reset token?",
+  "generateResetTokenConfirm": "Generate a one-time password-reset token for \"{username}\"? The token is shown only once — copy it and share it with the user out-of-band.",
+  "@generateResetTokenConfirm": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "generate": "Generate",
+  "resetTokenFailed": "Couldn't generate token: {error}",
+  "@resetTokenFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "resetTokenDialogTitle": "Reset token for {username}",
+  "@resetTokenDialogTitle": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "resetTokenWarning": "Save this token now. It is shown only once and cannot be retrieved later.",
+  "resetTokenExpires": "Expires {when}",
+  "@resetTokenExpires": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "resetTokenLabel": "Token",
+  "resetUrlLabel": "Reset URL",
+  "copyToken": "Copy token",
+  "copyResetUrl": "Copy reset URL",
+  "copiedToClipboard": "Copied to clipboard",
+  "resetPasswordTitle": "Reset your password",
+  "resetPasswordBody": "Enter the reset token your administrator gave you, then choose a new password.",
+  "resetTokenField": "Reset token",
+  "newPasswordField": "New password",
+  "confirmPasswordField": "Confirm password",
+  "passwordsMustMatch": "Passwords don't match",
+  "resetPasswordAction": "Reset password",
+  "resetPasswordSuccess": "Password reset. Sign in with your new password.",
+  "resetPasswordFailedMsg": "Reset failed: {error}",
+  "@resetPasswordFailedMsg": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "twoFactorTitle": "Two-factor authentication",
+  "twoFactorCodeHint": "Enter the 6-digit code from your authenticator app.",
+  "twoFactorRecoveryHint": "Enter one of your recovery codes (10 hex chars, dashes optional).",
+  "twoFactorCodeField": "Authentication code",
+  "recoveryCodeField": "Recovery code",
+  "useRecoveryInstead": "Use recovery code instead",
+  "useTotpInstead": "Use authenticator code instead",
+  "twoFactorEnabled": "Enabled",
+  "twoFactorNotEnabled": "Not enabled",
+  "twoFactorEnabledOn": "Enabled on {when}",
+  "@twoFactorEnabledOn": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "enable2FA": "Enable 2FA",
+  "disable2FA": "Disable 2FA",
+  "enable2FAStep1": "Step 1: scan this QR with your authenticator app (or paste the secret manually).",
+  "enable2FAStep2": "Step 2: enter the 6-digit code your app shows to confirm.",
+  "secretLabel": "Secret",
+  "copySecret": "Copy secret",
+  "recoveryCodesTitle": "Save your recovery codes",
+  "recoveryCodesBody": "Each code can be used once if you lose access to your authenticator. Save them somewhere safe — they won't be shown again.",
+  "copyRecoveryCodes": "Copy all codes",
+  "twoFactorEnableSuccess": "Two-factor authentication is now enabled.",
+  "twoFactorDisableSuccess": "Two-factor authentication has been disabled.",
+  "twoFactorEnableFailed": "Verification failed. Try again with a fresh code from your authenticator.",
+  "twoFactorDisableFailed": "Couldn't disable: {error}",
+  "@twoFactorDisableFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "disable2FATitle": "Disable two-factor authentication?",
+  "disable2FABody": "Enter your current authenticator code (or a recovery code) to confirm.",
+  "reset2FA": "Reset 2FA",
+  "reset2FAConfirm": "Reset 2FA for \"{username}\"? This disables their two-factor authentication and removes their recovery codes. Use this when a user has lost their authenticator AND all recovery codes.",
+  "@reset2FAConfirm": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "reset2FASuccess": "2FA reset for {username}",
+  "@reset2FASuccess": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "reset2FAWasNotEnabled": "{username} did not have 2FA enabled — nothing to reset.",
+  "@reset2FAWasNotEnabled": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  }
+}

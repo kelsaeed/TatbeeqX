@@ -1,0 +1,72 @@
+# TatbeeqX — cloud-first compose template.
+#
+# The default backend Dockerfile is configured for the **SQLite** primary
+# (data lives in the named volume `data`). To run against Postgres instead:
+#
+#   1. Edit backend/prisma/schema.prisma → provider = "postgresql"
+#   2. Regenerate locally (or rely on the container build to do it).
+#   3. Uncomment the `postgres` service below and set DATABASE_URL on the api.
+#
+# Frontend is built once, served by nginx as a static SPA. Adjust the
+# build-arg API_BASE_URL to whatever the api service is reachable at from
+# the user's browser (NOT from inside the docker network — the browser
+# resolves it).
+
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: ./backend
+    image: tatbeeqx/api:dev
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 4000
+      DATABASE_URL: ${DATABASE_URL:-file:/app/data/dev.db}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?must set JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?must set JWT_REFRESH_SECRET}
+      SEED_SUPERADMIN_USERNAME: ${SEED_SUPERADMIN_USERNAME:-superadmin}
+      SEED_SUPERADMIN_EMAIL: ${SEED_SUPERADMIN_EMAIL:-superadmin@local}
+      SEED_SUPERADMIN_PASSWORD: ${SEED_SUPERADMIN_PASSWORD:-ChangeMe!2026}
+    ports:
+      - "4000:4000"
+    volumes:
+      - data:/app/data
+      - uploads:/app/uploads
+    restart: unless-stopped
+    # Uncomment when running against the postgres service below.
+    # depends_on:
+    #   postgres:
+    #     condition: service_healthy
+
+  web:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./frontend/build/web:/usr/share/nginx/html:ro
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # postgres:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_USER: money
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-money}
+  #     POSTGRES_DB: TatbeeqX
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U money -d TatbeeqX"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 10
+  #   restart: unless-stopped
+
+volumes:
+  data:
+  uploads:
+  # pgdata:

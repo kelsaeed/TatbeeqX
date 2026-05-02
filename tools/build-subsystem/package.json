@@ -1,0 +1,19 @@
+{
+  "name": "tatbeeqx-build-subsystem",
+  "version": "0.2.0",
+  "description": "Build a branded, locked-down customer binary from a TatbeeqX template.",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "build-subsystem": "./build.mjs"
+  },
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3"
+  }
+}

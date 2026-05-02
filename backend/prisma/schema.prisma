@@ -1,0 +1,610 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  legalName   String?
+  taxNumber   String?
+  email       String?
+  phone       String?
+  address     String?
+  logoUrl     String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  branches  Branch[]
+  users     User[]
+  themes    Theme[]
+  settings  Setting[]
+  auditLogs AuditLog[]
+}
+
+model Branch {
+  id        Int      @id @default(autoincrement())
+  companyId Int
+  code      String
+  name      String
+  address   String?
+  phone     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  users   User[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  username     String    @unique
+  email        String    @unique
+  passwordHash String
+  fullName     String
+  phone        String?
+  avatarUrl    String?
+  isActive     Boolean   @default(true)
+  isSuperAdmin Boolean   @default(false)
+  companyId    Int?
+  branchId     Int?
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  // Phase 4.16 follow-up — TOTP 2FA. `totpSecret` is the AES-256-GCM
+  // encrypted Base32 secret (iv|tag|ciphertext, base64). Null when
+  // 2FA is disabled. `totpEnabledAt` doubles as the on/off flag plus
+  // forensic timestamp.
+  totpSecret    String?
+  totpEnabledAt DateTime?
+
+  company   Company?                 @relation(fields: [companyId], references: [id])
+  branch    Branch?                  @relation(fields: [branchId], references: [id])
+  userRoles UserRole[]
+  overrides UserPermissionOverride[]
+  auditLogs AuditLog[]
+  approvalsRequested ApprovalRequest[] @relation("ApprovalRequestedBy")
+  approvalsDecided   ApprovalRequest[] @relation("ApprovalDecidedBy")
+  refreshTokens RefreshToken[]
+  passwordResetTokens   PasswordResetToken[] @relation("PasswordResetSubject")
+  passwordResetsCreated PasswordResetToken[] @relation("PasswordResetCreator")
+  recoveryCodes RecoveryCode[]
+
+  @@index([companyId])
+  @@index([branchId])
+}
+
+// Phase 4.16 follow-up — admin-token password reset (no SMTP).
+//
+// An admin with `users.edit` (or super-admin) generates a token for a
+// user. The plaintext token is returned ONCE in the API response;
+// only its sha256 hash is persisted, so a DB compromise doesn't leak
+// active tokens. The admin shares the token / pre-built URL with the
+// user out-of-band (in person, secure messenger, etc.). The user
+// redeems via `/api/auth/redeem-reset-token`. Tokens are short-lived
+// (default 24h) + one-time use — `usedAt` is stamped on redemption
+// and rejected if already set.
+model PasswordResetToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int       // the user whose password is being reset
+  tokenHash String    @unique  // sha256(plaintext token)
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdBy Int?      // admin who generated the token (null if user is gone)
+  ip        String?   // captured at generation for forensics
+
+  user    User  @relation("PasswordResetSubject", fields: [userId],    references: [id], onDelete: Cascade)
+  creator User? @relation("PasswordResetCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Phase 4.16 follow-up — recovery codes for 2FA. Each code is a single-
+// use shortcut around TOTP, in case the user loses their authenticator.
+// Plaintext is shown ONCE at enrollment (or regeneration). Stored as
+// sha256 hash so a DB compromise doesn't leak active codes.
+model RecoveryCode {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  codeHash  String    @unique  // sha256 of the plaintext code
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Phase 4.16 follow-up — refresh-token rotation with reuse detection.
+//
+// Each issued refresh token gets a row here, indexed by its `jti` JWT
+// claim. On /auth/refresh: verify JWT signature, find the row by jti,
+// reject if revoked/expired, mark revoked, issue a new pair, link the
+// new token's row via replacedById. If a *revoked* token presents
+// itself again, that's theft — invalidate the whole replacement
+// chain.
+model RefreshToken {
+  id           Int       @id @default(autoincrement())
+  jti          String    @unique  // matches the `jti` claim in the JWT
+  userId       Int
+  issuedAt     DateTime  @default(now())
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById Int?      @unique  // points to the row issued in its place
+  userAgent    String?            // captured at issue for forensics
+  ip           String?
+
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replacedBy  RefreshToken?  @relation("RefreshTokenChain", fields: [replacedById], references: [id])
+  replaces    RefreshToken?  @relation("RefreshTokenChain")
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  labels      String   @default("{}")
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+}
+
+model Permission {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  module      String
+  action      String
+  description String?
+  createdAt   DateTime @default(now())
+
+  rolePermissions RolePermission[]
+  overrides       UserPermissionOverride[]
+
+  @@index([module])
+}
+
+model RolePermission {
+  roleId       Int
+  permissionId Int
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model UserRole {
+  userId Int
+  roleId Int
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model UserPermissionOverride {
+  userId       Int
+  permissionId Int
+  granted      Boolean
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([userId, permissionId])
+}
+
+model Module {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  description String?
+  icon        String?
+  isCore      Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  menuItems MenuItem[]
+}
+
+model MenuItem {
+  id             Int     @id @default(autoincrement())
+  moduleId       Int?
+  parentId       Int?
+  code           String  @unique
+  label          String
+  labels         String  @default("{}")
+  icon           String?
+  route          String?
+  permissionCode String?
+  sortOrder      Int     @default(0)
+  isActive       Boolean @default(true)
+
+  module   Module?    @relation(fields: [moduleId], references: [id])
+  parent   MenuItem?  @relation("MenuTree", fields: [parentId], references: [id])
+  children MenuItem[] @relation("MenuTree")
+
+  @@index([moduleId])
+  @@index([parentId])
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  companyId Int?
+  action    String
+  entity    String
+  entityId  String?
+  metadata  String?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user    User?    @relation(fields: [userId], references: [id])
+  company Company? @relation(fields: [companyId], references: [id])
+
+  @@index([userId])
+  @@index([companyId])
+  @@index([entity])
+  @@index([createdAt])
+}
+
+model Setting {
+  id        Int      @id @default(autoincrement())
+  companyId Int?
+  key       String
+  value     String
+  type      String   @default("string")
+  isPublic  Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+
+  company Company? @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, key])
+}
+
+model Theme {
+  id        Int      @id @default(autoincrement())
+  companyId Int?
+  name      String
+  isDefault Boolean  @default(false)
+  isActive  Boolean  @default(false)
+  data      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company? @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+}
+
+model Report {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  description String?
+  category    String   @default("general")
+  builder     String
+  config      String
+  isSystem    Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  schedules   ReportSchedule[]
+
+  @@index([category])
+}
+
+model CustomEntity {
+  id               Int      @id @default(autoincrement())
+  code             String   @unique
+  tableName        String   @unique
+  label            String
+  singular         String
+  icon             String?
+  category         String   @default("custom")
+  permissionPrefix String
+  config           String
+  isSystem         Boolean  @default(false)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([category])
+}
+
+model SavedQuery {
+  id         Int      @id @default(autoincrement())
+  name       String
+  description String?
+  sql        String
+  isReadOnly Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model SystemTemplate {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  description String?
+  kind        String   @default("full")
+  data        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Page {
+  id              Int      @id @default(autoincrement())
+  code            String   @unique
+  title           String
+  titles          String   @default("{}")
+  route           String   @unique
+  icon            String?
+  description     String?
+  permissionCode  String?
+  layout          String   @default("stack")
+  background      String?
+  isPublic        Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  showInSidebar   Boolean  @default(true)
+  sortOrder       Int      @default(100)
+  data            String   @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  blocks PageBlock[]
+
+  @@index([route])
+}
+
+model PageBlock {
+  id        Int      @id @default(autoincrement())
+  pageId    Int
+  parentId  Int?
+  type      String
+  sortOrder Int      @default(0)
+  config    String   @default("{}")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  page     Page        @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  parent   PageBlock?  @relation("BlockTree", fields: [parentId], references: [id])
+  children PageBlock[] @relation("BlockTree")
+
+  @@index([pageId])
+  @@index([parentId])
+}
+
+model LoginEvent {
+  id         Int      @id @default(autoincrement())
+  userId     Int?
+  username   String?
+  event      String
+  success    Boolean  @default(true)
+  ipAddress  String?
+  userAgent  String?
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([event])
+  @@index([createdAt])
+}
+
+model SystemLog {
+  id         Int      @id @default(autoincrement())
+  level      String   @default("info")
+  source     String
+  message    String
+  context    String?
+  createdAt  DateTime @default(now())
+
+  @@index([level])
+  @@index([source])
+  @@index([createdAt])
+}
+
+model DatabaseConnection {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  description String?
+  provider    String
+  url         String
+  isPrimary   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ApprovalRequest {
+  id            Int       @id @default(autoincrement())
+  entity        String
+  entityId      String?
+  title         String
+  description   String?
+  payload       String    @default("{}")
+  status        String    @default("pending")
+  requestedById Int
+  decidedById   Int?
+  decisionNote  String?
+  createdAt     DateTime  @default(now())
+  decidedAt     DateTime?
+
+  requestedBy User  @relation("ApprovalRequestedBy", fields: [requestedById], references: [id])
+  decidedBy   User? @relation("ApprovalDecidedBy", fields: [decidedById], references: [id])
+
+  @@index([status])
+  @@index([entity])
+  @@index([requestedById])
+  @@index([decidedById])
+  @@index([createdAt])
+}
+
+model ReportSchedule {
+  id           Int       @id @default(autoincrement())
+  reportId     Int
+  name         String
+  frequency    String
+  cron         String?
+  timeOfDay    String?
+  dayOfWeek    Int?
+  dayOfMonth   Int?
+  enabled      Boolean   @default(true)
+  lastRunAt    DateTime?
+  nextRunAt    DateTime?
+  lockedBy     String?
+  lockedAt     DateTime?
+  retentionDays Int?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  report Report               @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  runs   ScheduledReportRun[]
+
+  @@index([enabled])
+  @@index([nextRunAt])
+  @@index([reportId])
+  @@index([lockedAt])
+}
+
+model ScheduledReportRun {
+  id          Int      @id @default(autoincrement())
+  scheduleId  Int
+  runAt       DateTime @default(now())
+  success     Boolean
+  result      String?
+  error       String?
+  resultPurged Boolean @default(false)
+
+  schedule ReportSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@index([scheduleId])
+  @@index([runAt])
+}
+
+model WebhookSubscription {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  url         String
+  secret      String?
+  events      String   @default("[]")
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  deliveries WebhookDelivery[]
+
+  @@index([enabled])
+}
+
+model WebhookDelivery {
+  id             Int      @id @default(autoincrement())
+  subscriptionId Int
+  event          String
+  payload        String
+  status         Int?
+  responseBody   String?
+  error          String?
+  attempt        Int      @default(1)
+  createdAt      DateTime @default(now())
+
+  subscription WebhookSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+  @@index([event])
+  @@index([createdAt])
+}
+
+// Phase 4.17 — workflow engine. Admin-defined automation that runs in
+// response to record mutations, dispatched events, or a cron schedule.
+// See docs/48-workflow-engine.md for full design.
+//
+// `triggerType` is one of 'record' | 'event' | 'schedule'. The
+// schedule-state columns (nextRunAt/lastRunAt/lockedBy/lockedAt) are
+// only used when triggerType='schedule' — they sit on the row so the
+// cron loop can claim with a single atomic updateMany, identical to
+// ReportSchedule.
+model Workflow {
+  id            Int       @id @default(autoincrement())
+  code          String    @unique
+  name          String
+  description   String?
+  triggerType   String
+  triggerConfig String    @default("{}")
+  actions       String    @default("[]")
+  enabled       Boolean   @default(true)
+  nextRunAt     DateTime?
+  lastRunAt     DateTime?
+  lockedBy      String?
+  lockedAt      DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  runs WorkflowRun[]
+
+  @@index([triggerType])
+  @@index([enabled])
+  @@index([nextRunAt])
+  @@index([lockedAt])
+}
+
+model WorkflowRun {
+  id             Int       @id @default(autoincrement())
+  workflowId     Int
+  triggerEvent   String
+  triggerPayload String?
+  status         String
+  startedAt      DateTime  @default(now())
+  finishedAt     DateTime?
+  error          String?
+
+  workflow Workflow          @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  steps    WorkflowRunStep[]
+
+  @@index([workflowId])
+  @@index([status])
+  @@index([startedAt])
+}
+
+model WorkflowRunStep {
+  id          Int       @id @default(autoincrement())
+  runId       Int
+  index       Int
+  actionType  String
+  actionName  String?
+  status      String
+  result      String?
+  error       String?
+  startedAt   DateTime  @default(now())
+  finishedAt  DateTime?
+
+  run WorkflowRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+}

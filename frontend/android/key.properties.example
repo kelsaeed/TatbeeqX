@@ -1,0 +1,25 @@
+# Money Control — Android release-signing properties.
+#
+# Phase 4.16 follow-up. Copy this file to `key.properties` (same dir),
+# fill in the values for your keystore, and `flutter build apk --release`
+# / `flutter build appbundle --release` will pick it up automatically.
+#
+# `key.properties` and any `*.jks` / `*.keystore` files are gitignored
+# (see android/.gitignore) — never commit secrets.
+#
+# See docs/46-mobile-release-signing.md for full keystore-creation steps.
+
+# Path to the keystore file, RELATIVE to android/ (where this file
+# lives). Convention: keep the keystore inside android/ alongside
+# key.properties so the relative path is stable.
+storeFile=upload-keystore.jks
+
+# Password to unlock the keystore.
+storePassword=CHANGE_ME
+
+# Alias of the key inside the keystore (set with -alias when you ran
+# keytool -genkey).
+keyAlias=upload
+
+# Password for that specific key (often same as storePassword).
+keyPassword=CHANGE_ME

@@ -1,0 +1,76 @@
+# --- Node ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- Env ---
+.env
+.env.local
+*.env
+backend/.env-backups/
+
+# --- Prisma / SQLite ---
+backend/prisma/dev.db
+backend/prisma/dev.db-journal
+backend/prisma/migrations/dev/
+
+# --- Server-side state (per-install, not source) ---
+backend/uploads/
+backend/backups/
+
+# --- Flutter ---
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.metadata
+generated_plugin_registrant.*
+frontend/pubspec.lock
+frontend/windows/flutter/ephemeral/
+frontend/web/flutter_service_worker.js
+
+# --- Android ---
+**/.gradle/
+frontend/android/local.properties
+frontend/android/key.properties
+frontend/android/app/*.jks
+frontend/android/app/*.keystore
+
+# --- iOS / macOS ---
+frontend/ios/Pods/
+frontend/ios/Flutter/Generated.xcconfig
+frontend/ios/Flutter/flutter_export_environment.sh
+frontend/ios/Runner/GoogleService-Info.plist
+*.xcuserstate
+xcuserdata/
+
+# --- Windows / native build artifacts ---
+*.dll
+*.exe
+*.obj
+
+# --- IDE / OS ---
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+*.iml
+.DS_Store
+Thumbs.db
+
+# --- Claude Code per-user (team `.claude/settings.json` is shared if present) ---
+.claude/settings.local.json
+
+# --- Test / coverage ---
+coverage/
+.vitest-cache/
+
+# --- Logs ---
+*.log
+
+# --- Misc ---
+New Text Document.txt

@@ -1,0 +1,11 @@
+{
+  "// Why": "This is a Flutter project. Flutter drives CMake (Windows desktop) and Gradle (Android) on its own via `flutter build`. The CMake Tools and Java/Gradle extensions don't need to scan this workspace.",
+
+  "cmake.configureOnOpen": false,
+  "cmake.ignoreCMakeListsMissing": true,
+
+  "java.import.gradle.enabled": false,
+  "java.configuration.updateBuildConfiguration": "disabled",
+  "gradle.autoDetect": "off",
+  "gradle.nestedProjects": false
+}

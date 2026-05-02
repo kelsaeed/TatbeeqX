@@ -1,0 +1,10 @@
+{
+  "kind": "full",
+  "version": 3,
+  "createdAt": "2026-05-02T11:00:00.000Z",
+  "modules": ["pages", "custom-entities"],
+  "branding": {
+    "appName": "Prune Smoke Test",
+    "primaryColor": "#1f6feb"
+  }
+}
