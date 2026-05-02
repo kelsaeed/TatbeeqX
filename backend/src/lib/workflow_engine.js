@@ -30,6 +30,10 @@ export const ACTION_TYPES = [
   // Phase 4.18 — in-app notification fan-out. Resolves the target user
   // by `userId` | `username` | `email` (first match wins).
   'notify_user',
+  // Phase 4.19 — outbound email via SMTP. Skips silently with a step
+  // success when SMTP isn't configured (so chain composition stays
+  // non-fatal in stub-mode dev installs).
+  'send_email',
 ];
 export const RECORD_OPS = ['created', 'updated', 'deleted'];
 
@@ -287,6 +291,24 @@ const HANDLERS = {
     }
     const created = await notify(targetId, { kind, title, body, link });
     return { id: created.id, userId: targetId };
+  },
+
+  async send_email(params) {
+    const { to, subject, text, html, from } = params;
+    if (!to) throw new Error('send_email: to required');
+    if (!subject) throw new Error('send_email: subject required');
+    if (!text && !html) throw new Error('send_email: text or html required');
+    const { sendEmail, isConfigured } = await import('./email.js');
+    // Stub-mode is treated as "step succeeded but didn't send" rather
+    // than a failure, so workflows compose cleanly on dev boxes that
+    // don't have SMTP wired. Operators can flip BAIL_ON_NO_SMTP=1 to
+    // make the action fail loudly in CI/prod.
+    if (!isConfigured() && process.env.BAIL_ON_NO_SMTP !== '1') {
+      return { ok: false, stubbed: true, reason: 'smtp not configured' };
+    }
+    const result = await sendEmail({ to, subject, text, html, from });
+    if (!result.ok && !result.stubbed) throw new Error(`send_email: ${result.reason}`);
+    return result;
   },
 };
 

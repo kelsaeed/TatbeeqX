@@ -9,6 +9,54 @@ import { writeAudit } from '../lib/audit.js';
 import { createApprovalRequest, decideApproval, STATUS } from '../lib/approvals.js';
 import { fireAndForget } from '../lib/webhooks.js';
 import { runHandlers } from '../lib/approval_handlers.js';
+import { sendEmail, wrapEmail, isConfigured as smtpConfigured } from '../lib/email.js';
+import { notify } from '../lib/notifications.js';
+import { logSystem } from '../lib/system_log.js';
+import { env } from '../config/env.js';
+
+// Phase 4.19 — notify the requester when their approval request is
+// decided. In-app notification always fires (cheap); the email is
+// fire-and-forget and gracefully no-ops when SMTP isn't configured.
+async function notifyRequesterOfDecision(action, dto) {
+  try {
+    const requester = await prisma.user.findUnique({ where: { id: dto.requestedById } });
+    if (!requester) return;
+
+    const verb = action === 'approved' ? 'approved' : action === 'rejected' ? 'rejected' : 'decided';
+    const decidedBy = dto.decidedBy?.fullName || dto.decidedBy?.username || 'an admin';
+    const note = dto.decisionNote ? ` Note: "${dto.decisionNote}".` : '';
+
+    // In-app — always.
+    await notify(requester.id, {
+      kind: 'approval',
+      title: `Your "${dto.title}" was ${verb}`,
+      body: `${decidedBy} ${verb} your request.${note}`,
+      link: '/approvals',
+    }).catch(() => {});
+
+    // Email — only when SMTP is up + the user has an email.
+    if (!smtpConfigured() || !requester.email) return;
+    const subject = `Your "${dto.title}" was ${verb}`;
+    const text =
+      `Hi ${requester.fullName || requester.username},\n\n` +
+      `Your approval request "${dto.title}" was ${verb} by ${decidedBy}.${note}\n\n` +
+      `Open the approvals queue: ${env.appUrl.replace(/\/+$/, '')}/approvals\n`;
+    const html = wrapEmail({
+      heading: `Your request was ${verb}`,
+      bodyHtml:
+        `<p>Hi ${requester.fullName || requester.username},</p>` +
+        `<p>Your approval request <strong>"${dto.title}"</strong> was <strong>${verb}</strong> by ${decidedBy}.` +
+        (dto.decisionNote ? ` Note: <em>${dto.decisionNote}</em>.` : '') + `</p>`,
+      ctaUrl: `${env.appUrl.replace(/\/+$/, '')}/approvals`,
+      ctaLabel: 'Open approvals',
+    });
+    sendEmail({ to: requester.email, subject, text, html }).catch(() => {});
+  } catch (err) {
+    await logSystem('warn', 'approvals', 'notifyRequesterOfDecision failed', {
+      action, requestId: dto.id, error: String(err?.message || err),
+    }).catch(() => {});
+  }
+}
 
 const router = Router();
 router.use(authenticate);
@@ -123,6 +171,7 @@ router.post(
     const dto = toDto(updated);
     await runHandlers('approved', dto);
     fireAndForget('approval.approved', dto);
+    notifyRequesterOfDecision('approved', dto).catch(() => {});
     res.json(dto);
   }),
 );
@@ -144,6 +193,7 @@ router.post(
     const dto = toDto(updated);
     await runHandlers('rejected', dto);
     fireAndForget('approval.rejected', dto);
+    notifyRequesterOfDecision('rejected', dto).catch(() => {});
     res.json(dto);
   }),
 );

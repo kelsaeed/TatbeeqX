@@ -64,8 +64,9 @@ What the trigger handler hands the action runner as `context.trigger`:
 | `create_approval` | Create an `ApprovalRequest` | `entity`, `entityId?`, `title`, `description?`, `payload?` |
 | `log` | Write a `SystemLog` row, for debugging chains | `level` (`info`/`warn`/`error`), `message`, `context?` (object) |
 | `notify_user` (Phase 4.18) | Create an in-app notification for a single user. Resolves target by `userId` \| `username` \| `email` (first match wins); fails the step if no user resolves | `userId?`, `username?`, `email?`, `kind?` (default `'workflow'`), `title`, `body?`, `link?` (in-app route) |
+| `send_email` (Phase 4.19) | Send an outbound email via SMTP. Step succeeds with `stubbed:true` when SMTP isn't configured (so chain composition stays non-fatal in dev installs); set `BAIL_ON_NO_SMTP=1` in env to make it fail loudly instead | `to` (string or array), `subject`, `text?`, `html?` (at least one body), `from?` (defaults to env `SMTP_FROM`) |
 
-Deferred: send_email (no SMTP yet), run_sql (admin gun, want to think hard about this one), send_slack (use `http_request` for now), broadcast notifications (notify-by-role) — exposed in `lib/notifications.js#notifyRole` for direct callers but not yet through the workflow action.
+Deferred: run_sql (admin gun, want to think hard about this one), send_slack (use `http_request` for now), broadcast notifications (notify-by-role) — exposed in `lib/notifications.js#notifyRole` for direct callers but not yet through the workflow action. Scheduled-report email digest is also deferred — `ReportSchedule` would need a `recipients` JSON field + cron-loop email send + UI to manage subscribers; the work isn't trivial enough to bolt on the SMTP commit.
 
 ### Conditional logic
 

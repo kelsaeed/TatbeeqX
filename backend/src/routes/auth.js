@@ -17,6 +17,7 @@ import { authenticate } from '../middleware/auth.js';
 // (parseId imported above alongside notFound — same middleware/validate path)
 import { writeAudit } from '../lib/audit.js';
 import { recordLoginEvent } from '../lib/system_log.js';
+import { env } from '../config/env.js';
 
 const router = Router();
 
@@ -664,6 +665,103 @@ router.post(
     });
 
     res.json({ ok: true });
+  }),
+);
+
+// Phase 4.19 — self-serve forgot-password. Public endpoint that emails
+// a single-use, short-TTL reset link. Rate-limited per IP. Always
+// returns 200 with a generic message, regardless of whether the
+// account exists, so an attacker can't enumerate registered emails or
+// usernames. SMTP must be configured — without it the endpoint
+// returns 503 so the operator knows to wire it up.
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.AUTH_FORGOT_PASSWORD_MAX) || 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { message: 'Too many requests. Try again in a few minutes.' } },
+});
+
+router.post(
+  '/forgot-password',
+  forgotPasswordLimiter,
+  asyncHandler(async (req, res) => {
+    const { isConfigured, sendEmail, wrapEmail } = await import('../lib/email.js');
+    if (!isConfigured()) {
+      // Distinct status so the frontend can surface "ask your admin to
+      // wire up SMTP" instead of a generic error.
+      return res.status(503).json({
+        error: { message: 'Email is not configured on this server. Ask an admin to reset your password manually.' },
+      });
+    }
+
+    const identifier = (req.body?.identifier ?? req.body?.username ?? req.body?.email ?? '').toString().trim();
+    // Always succeed at the API surface — the actual lookup happens
+    // below, and any miss gets the same response. The 200 below is
+    // unconditional even when SMTP errored, to keep enumeration off
+    // the table.
+    const ack = () => res.json({
+      ok: true,
+      message: 'If that account exists and has email configured, a reset link has been sent.',
+    });
+
+    if (!identifier) return ack();
+
+    const user = await prisma.user.findFirst({
+      where: {
+        isActive: true,
+        OR: [{ username: identifier }, { email: identifier }],
+      },
+    });
+    if (!user || !user.email) {
+      // Soak constant-time-ish so a missing row doesn't measurably
+      // beat a present row in latency. 80ms covers the email-send
+      // path on a fast SMTP relay.
+      await new Promise((r) => setTimeout(r, 80));
+      return ack();
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const ttlMs = Number(process.env.AUTH_FORGOT_PASSWORD_TTL_MS) || 60 * 60 * 1000;  // 1h default
+
+    await prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        expiresAt: new Date(Date.now() + ttlMs),
+        createdBy: null,  // self-serve, no admin actor
+        ip: req.ip || null,
+      },
+    });
+
+    const url = `${env.appUrl.replace(/\/+$/, '')}/reset-password?token=${encodeURIComponent(token)}`;
+    const subject = 'Reset your TatbeeqX password';
+    const text =
+      `Hi ${user.fullName || user.username},\n\n` +
+      `A password reset was requested for your account.\n\n` +
+      `Click this link to set a new password (valid for ${Math.round(ttlMs / 60000)} minutes):\n${url}\n\n` +
+      `If you didn't request this, you can ignore this email — no changes will be made.`;
+    const html = wrapEmail({
+      heading: 'Reset your password',
+      bodyHtml: `<p>Hi ${user.fullName || user.username},</p><p>A password reset was requested for your account. Click the button below to set a new password — the link is valid for <strong>${Math.round(ttlMs / 60000)} minutes</strong> and can only be used once.</p><p style="color:#64748b;font-size:13px;">If you didn't request this, you can ignore this email — no changes will be made.</p>`,
+      ctaUrl: url,
+      ctaLabel: 'Reset password',
+    });
+
+    // Fire-and-forget the actual send so timing doesn't depend on
+    // SMTP latency. Failures land in SystemLog via sendEmail itself.
+    sendEmail({ to: user.email, subject, text, html }).catch(() => {});
+
+    await writeAudit({
+      req: { ...req, user: { id: user.id, username: user.username, isSuperAdmin: false } },
+      action: 'password_reset.requested',
+      entity: 'User',
+      entityId: user.id,
+      metadata: { method: 'self-serve', ip: req.ip },
+    });
+
+    return ack();
   }),
 );
 

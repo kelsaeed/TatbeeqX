@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/theme_controller.dart';
 import '../../../core/theme/theme_settings.dart';
@@ -184,7 +185,15 @@ class _LoginForm extends StatelessWidget {
                       )
                     : Text(t.signIn),
               ),
-              const SizedBox(height: 18),
+              // Phase 4.19 — self-serve password reset entry point.
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: loading ? null : () => GoRouter.of(context).go('/forgot-password'),
+                  // Page is at /forgot-password (public route, see app_router.dart).
+                  child: const Text('Forgot password?'),
+                ),
+              ),
               Text(
                 t.loginTagline,
                 textAlign: TextAlign.center,

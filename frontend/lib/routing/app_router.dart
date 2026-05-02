@@ -14,6 +14,7 @@ import '../features/auth/application/auth_controller.dart';
 import '../features/setup/setup_controller.dart';
 import '../features/auth/presentation/login_page.dart';
 import '../features/auth/presentation/reset_password_page.dart';
+import '../features/auth/presentation/forgot_password_page.dart';
 import '../features/dashboard/presentation/dashboard_page.dart';
 import '../features/dashboard/presentation/dashboard_shell.dart';
 import '../features/users/presentation/users_page.dart';
@@ -75,8 +76,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       final loggingIn = path == '/login';
       // Phase 4.16 follow-up — /reset-password is a public route.
       // The user redeeming a token may not be logged in (most common
-      // case). Skip the auth-gate for this path.
-      final resetting = path == '/reset-password';
+      // case). Skip the auth-gate for this path. Phase 4.19 added
+      // /forgot-password to the same bypass list.
+      final resetting = path == '/reset-password' || path == '/forgot-password';
       if (!auth.isLoggedIn && !loggingIn && !resetting) return '/login';
       if (auth.isLoggedIn && loggingIn) return '/dashboard';
 
@@ -105,6 +107,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, st) => ResetPasswordPage(
           initialToken: st.uri.queryParameters['token'],
         ),
+      ),
+      // Phase 4.19 — self-serve forgot-password entry. Public; the
+      // backend's anti-enumeration response keeps existence checks off.
+      GoRoute(
+        path: '/forgot-password',
+        builder: (_, __) => const ForgotPasswordPage(),
       ),
       GoRoute(path: '/setup', builder: (_, __) => const SetupPage()),
       ShellRoute(

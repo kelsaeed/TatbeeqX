@@ -4,7 +4,7 @@
 // end-to-end. Notifications are per-account state — there is no
 // admin-sees-everyone view.
 
-import { describe, it, expect, beforeAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import { buildApp } from '../src/lib/app.js';
 import { prisma } from '../src/lib/prisma.js';
@@ -55,11 +55,16 @@ beforeAll(async () => {
   otherToken = login2.body.accessToken;
 });
 
-afterEach(async () => {
+// Wipe before AND after each test. Approval-decision flows in other
+// test files (Phase 4.19) create notifications for the same admin user
+// id, and those leak into "expected only N items" assertions here.
+async function wipe() {
   await prisma.notification.deleteMany({
     where: { userId: { in: [adminId, otherId].filter(Boolean) } },
   }).catch(() => {});
-});
+}
+beforeEach(wipe);
+afterEach(wipe);
 
 describe('GET /api/notifications', () => {
   it('returns only the caller\'s notifications', async () => {
