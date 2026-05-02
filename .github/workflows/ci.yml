@@ -70,12 +70,7 @@ jobs:
       - name: Analyze
         run: flutter analyze
 
-      # Run any flutter tests if the test/ dir exists. The repo doesn't
-      # have any today; this keeps CI working when they're added.
-      - name: Test
-        run: |
-          if [ -d test ] && [ "$(ls -A test 2>/dev/null)" ]; then
-            flutter test
-          else
-            echo "No test/ dir — skipping flutter test."
-          fi
+      # No `flutter test` here on purpose. The frontend has no widget-
+      # test suite (see test/widget_test.dart placeholder + the project's
+      # "no flutter_test in pubspec" rule). UI is verified via analyze +
+      # operator smoke tests. Add a Test step here when real tests land.
