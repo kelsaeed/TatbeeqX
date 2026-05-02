@@ -47,11 +47,22 @@ jobs:
 
       - name: Run vitest
         # `verbose` prints each test name; `github-actions` annotates
-        # failures inline in the PR/commit view. Both reporters run, so
-        # the failing assertion is one click away.
-        run: npx vitest run --reporter=verbose --reporter=github-actions
+        # failures inline in the PR/commit view. Tee to a log file so we
+        # can upload it as an artifact for offline inspection when a
+        # failure isn't obvious from the inline annotations.
+        run: |
+          set -o pipefail
+          npx vitest run --reporter=verbose --reporter=github-actions 2>&1 | tee vitest.log
         env:
           DATABASE_URL: 'file:./dev.db'
+
+      - name: Upload vitest log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-log
+          path: backend/vitest.log
+          if-no-files-found: ignore
 
   frontend:
     name: frontend (flutter analyze)
