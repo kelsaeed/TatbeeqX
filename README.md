@@ -1,5 +1,8 @@
 # TatbeeqX
 
+[![CI](https://github.com/kelsaeed/TatbeeqX/actions/workflows/ci.yml/badge.svg)](https://github.com/kelsaeed/TatbeeqX/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Flexible multi-company management platform. Suits restaurants, POS/cashier, factories, clinics, finance offices, rentals, and more. Built to run on a LAN today and to graduate to a cloud database without code changes.
 
 ## Stack

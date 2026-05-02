@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress runs for the same PR/branch when a new push lands.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: backend (vitest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      # tests/setup.js copies prisma/dev.db to a per-run temp file —
+      # the dev.db must exist + be seeded before vitest starts.
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: 'file:./dev.db'
+
+      - name: Seed
+        run: npm run db:seed
+        env:
+          DATABASE_URL: 'file:./dev.db'
+
+      - name: Run vitest
+        run: npm test
+        env:
+          DATABASE_URL: 'file:./dev.db'
+
+  frontend:
+    name: frontend (flutter analyze)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve packages
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      # Run any flutter tests if the test/ dir exists. The repo doesn't
+      # have any today; this keeps CI working when they're added.
+      - name: Test
+        run: |
+          if [ -d test ] && [ "$(ls -A test 2>/dev/null)" ]; then
+            flutter test
+          else
+            echo "No test/ dir — skipping flutter test."
+          fi
