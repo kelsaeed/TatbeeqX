@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import crypto from 'node:crypto';
 import { prisma } from '../lib/prisma.js';
 import { verifyPassword, hashPassword } from '../lib/password.js';
@@ -393,7 +393,7 @@ const challengeLimiter = rateLimit({
   max: Number(process.env.AUTH_2FA_MAX) || 10,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
+  keyGenerator: (req, res) => {
     try {
       const t = req.body?.challengeToken;
       if (typeof t === 'string' && t.length > 0) {
@@ -401,7 +401,10 @@ const challengeLimiter = rateLimit({
         if (payload?.sub) return `2fa:user:${payload.sub}`;
       }
     } catch { /* fall through to IP */ }
-    return `2fa:ip:${req.ip}`;
+    // Use the library's helper so IPv6 keys are normalized to a /64
+    // prefix; otherwise each /128 address gets its own bucket and a
+    // single IPv6 host can trivially exceed the limit.
+    return `2fa:ip:${ipKeyGenerator(req, res)}`;
   },
   message: { error: { message: 'Too many 2FA attempts. Try again in a few minutes.' } },
 });

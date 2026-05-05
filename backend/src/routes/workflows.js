@@ -7,7 +7,7 @@
 
 import crypto from 'node:crypto';
 import { Router } from 'express';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { prisma } from '../lib/prisma.js';
 import { authenticate } from '../middleware/auth.js';
 import { requirePermission } from '../middleware/permission.js';
@@ -30,7 +30,8 @@ const workflowRunLimiter = rateLimit({
   max: Number(process.env.WORKFLOW_RUN_MAX) || 30,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => `wfrun:${req.user?.id ?? req.ip}`,
+  keyGenerator: (req, res) =>
+    req.user?.id != null ? `wfrun:user:${req.user.id}` : `wfrun:ip:${ipKeyGenerator(req, res)}`,
   message: { error: { message: 'Too many workflow runs. Try again in a few minutes.' } },
 });
 
