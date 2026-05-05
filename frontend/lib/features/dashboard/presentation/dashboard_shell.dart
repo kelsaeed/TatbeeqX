@@ -34,9 +34,14 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = ref.watch(authControllerProvider);
+    // Phase 4.20 perf — narrow watches with select() so the shell
+    // doesn't rebuild on every transient AuthState / ThemeState
+    // change (loading flips, error flickers, the 45 s
+    // unreadNotifications poll tick that updates the bell seed in
+    // AuthState). The shell only reads `user` and `theme.settings`.
+    final user = ref.watch(authControllerProvider.select((s) => s.user));
     final menuState = ref.watch(menuControllerProvider);
-    final theme = ref.watch(themeControllerProvider).settings;
+    final theme = ref.watch(themeControllerProvider.select((s) => s.settings));
     final subsystem = ref.watch(subsystemInfoProvider).valueOrNull
         ?? SubsystemInfo.empty;
     final cs = Theme.of(context).colorScheme;
@@ -67,7 +72,7 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
       sidebarColor: hexWithAlpha(theme.sidebar, theme.sidebarOpacity),
       sidebarText: hexToColor(theme.sidebarText),
       appName: theme.appName,
-      isSuperAdmin: auth.user?.isSuperAdmin ?? false,
+      isSuperAdmin: user?.isSuperAdmin ?? false,
       localeCode: localeCode,
       enableGlass: theme.enableGlass,
       glassBlur: theme.glassBlur.toDouble(),
@@ -90,7 +95,7 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
           child: Column(
             children: [
               _TopBar(
-                user: auth.user,
+                user: user,
                 onLogout: ({bool everywhere = false}) async {
                   final router = GoRouter.of(context);
                   await ref.read(authControllerProvider.notifier).logout(everywhere: everywhere);
@@ -313,7 +318,9 @@ class _NavTile extends StatelessWidget {
   }
 }
 
-class _TopBar extends ConsumerWidget {
+// Phase 4.20 perf — was ConsumerWidget but never reads ref. Demoted
+// to StatelessWidget so it doesn't subscribe to anything.
+class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.user,
     required this.onLogout,
@@ -352,7 +359,7 @@ class _TopBar extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final t = AppLocalizations.of(context);
     final fullName = user?.fullName as String? ?? '';

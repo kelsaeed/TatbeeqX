@@ -52,7 +52,11 @@ class DashboardPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final auth = ref.watch(authControllerProvider);
+    // Phase 4.20 perf — narrow watches with select() so the page
+    // doesn't rebuild on every transient AuthState change (loading
+    // flips, unreadNotifications poll updates, etc). Only the user
+    // field is read here.
+    final user = ref.watch(authControllerProvider.select((s) => s.user));
     final summary = ref.watch(_dashboardSummaryProvider);
     final byDay = ref.watch(_auditByDayProvider);
     final byModule = ref.watch(_auditByModuleProvider);
@@ -65,8 +69,8 @@ class DashboardPage extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           PageHeader(
-            title: auth.user != null
-                ? '${t.dashboard} — ${auth.user!.fullName.split(' ').first}'
+            title: user != null
+                ? '${t.dashboard} — ${user.fullName.split(' ').first}'
                 : t.dashboard,
             subtitle: t.dashboardSubtitle,
           ),
@@ -90,6 +94,9 @@ class _DashboardBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
+    // Phase 4.20 perf — hoist these so the inline list mappings don't
+    // walk the inherited-widget tree once per item.
+    final smallText = Theme.of(context).textTheme.bodySmall;
     final counts = (data['counts'] as Map<String, dynamic>? ?? const {});
     final recentLogins = (data['recentLogins'] as List? ?? const []);
     final recentAudit = (data['recentAudit'] as List? ?? const []);
@@ -146,7 +153,7 @@ class _DashboardBody extends StatelessWidget {
                     leading: CircleAvatar(child: Text(((m['fullName'] ?? m['username']) as String).substring(0, 1).toUpperCase())),
                     title: Text((m['fullName'] ?? m['username']) as String),
                     subtitle: Text(m['username'] as String),
-                    trailing: Text(_fmtDate(dt), style: Theme.of(context).textTheme.bodySmall),
+                    trailing: Text(_fmtDate(dt), style: smallText),
                   );
                 }),
               ],
@@ -189,7 +196,7 @@ class _DashboardBody extends StatelessWidget {
                     leading: const Icon(Icons.history),
                     title: Text('${m['action']} → ${m['entity']}${m['entityId'] != null ? ' #${m['entityId']}' : ''}'),
                     subtitle: Text(user?['fullName']?.toString() ?? user?['username']?.toString() ?? t.systemUserLabel),
-                    trailing: Text(_fmtDate(m['createdAt'] as String?), style: Theme.of(context).textTheme.bodySmall),
+                    trailing: Text(_fmtDate(m['createdAt'] as String?), style: smallText),
                   );
                 }),
               ],
