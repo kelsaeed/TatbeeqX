@@ -1,4 +1,4 @@
-# 19 — Project memory snapshot
+﻿# 19 — Project memory snapshot
 
 This is a curated mirror of the **durable, non-obvious facts** about the project. The full long-form is at [`MEMORY.md`](../MEMORY.md) at the project root. This page is the human-facing companion.
 
@@ -82,13 +82,13 @@ These are the rules that surprised someone once. Record-keeping prevents re-lear
 
 ```
 Host PC (Windows):
-  backend/                      ← `npm start`, port 4000
+  backend/                      ← `npm start`, PORT 4040
     prisma/dev.db               ← single source of truth
     uploads/                    ← logos, favicons, backgrounds
-  Windows Firewall: TCP 4000 inbound allowed
+  Windows Firewall: TCP 4040 inbound allowed
 
 Each client PC (Windows):
-  TatbeeqX.exe (built with --dart-define=API_BASE_URL=http://192.168.x.x:4000/api)
+  TatbeeqX.exe (built with --dart-define=API_BASE_URL=http://192.168.x.x:4040/api)
   %APPDATA%\TatbeeqX\auth.json   ← tokens
 ```
 

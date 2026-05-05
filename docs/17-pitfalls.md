@@ -1,10 +1,10 @@
-# 17 — Common pitfalls
+﻿# 17 — Common pitfalls
 
 Things that have actually broken — and what fixed them.
 
 ## Login fails / spinner forever
 
-**Symptom**: The login screen says `Cannot reach the server at http://localhost:4000/api`, or the spinner spins indefinitely.
+**Symptom**: The login screen says `Cannot reach the server at http://localhost:4040/api`, or the spinner spins indefinitely.
 
 **Cause**: The backend is not running.
 
@@ -13,7 +13,7 @@ Things that have actually broken — and what fixed them.
 cd backend
 npm run dev
 ```
-If it is already running, check that nothing else is on port 4000 (`netstat -ano | findstr :4000`).
+If it is already running, check that nothing else is on PORT 4040 (`netstat -ano | findstr :4040`).
 
 ## "Building with plugins requires symlink support"
 

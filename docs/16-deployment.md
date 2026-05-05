@@ -1,4 +1,4 @@
-# 16 — Deployment
+﻿# 16 — Deployment
 
 The system is built to run on a **LAN** today and to migrate to a **cloud database** later without app code changes.
 
@@ -9,7 +9,7 @@ The system is built to run on a **LAN** today and to migrate to a **cloud databa
 ```
 +--------------+         LAN         +-----------------+
 | Host machine | <-----------------> | Client machines |
-| (Windows PC) |  port 4000 (HTTP)   | (Windows PCs)   |
+| (Windows PC) |  PORT 4040 (HTTP)   | (Windows PCs)   |
 |              |                     | running .exe    |
 | backend +    |                     |                 |
 | sqlite       |                     |                 |
@@ -25,12 +25,12 @@ The system is built to run on a **LAN** today and to migrate to a **cloud databa
    npm run db:reset
    npm start          # or use pm2 / nssm to run as a Windows service
    ```
-2. **Allow port 4000 through the Windows firewall** (`Inbound rule → Port → TCP 4000 → Allow`).
+2. **Allow PORT 4040 through the Windows firewall** (`Inbound rule → Port → TCP 4040 → Allow`).
 3. **Find the host's LAN IP**: `ipconfig` → `IPv4 Address` (e.g. `192.168.1.10`).
 4. **Build the Flutter desktop app** with the host IP baked in:
    ```bash
    cd frontend
-   flutter build windows --dart-define=API_BASE_URL=http://192.168.1.10:4000/api
+   flutter build windows --dart-define=API_BASE_URL=http://192.168.1.10:4040/api
    ```
 5. **Copy** `frontend/build/windows/x64/runner/Release/` to each client machine. The `.exe` inside is `tatbeeqx.exe`.
 6. **Launch on the client.** It will hit the host on first request.
@@ -91,7 +91,7 @@ npm run db:seed
 
 ### 5. Host the API somewhere
 
-Render, Fly, Railway, a small VPS. Open port 4000 (or put it behind nginx on 443).
+Render, Fly, Railway, a small VPS. Open PORT 4040 (or put it behind nginx on 443).
 
 ### 6. Rebuild the desktop client with the public URL
 

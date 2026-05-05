@@ -1,4 +1,4 @@
-# TatbeeqX — Setup Guide
+﻿# TatbeeqX — Setup Guide
 
 Everything you need to install on a fresh machine to **open the code, modify it, and run it**. Companion to [README.md](README.md) (project intro) and [docs/03-getting-started.md](docs/03-getting-started.md) (first-run walkthrough).
 
@@ -220,7 +220,7 @@ cd backend
 cp .env.example .env          # edit secrets if you want
 npm install
 npm run db:reset              # creates SQLite, applies migrations, runs seed
-npm run dev                   # API on http://localhost:4000
+npm run dev                   # API on http://localhost:4040
 ```
 
 `npm run db:reset` is idempotent — re-run it anytime to start clean.
@@ -247,11 +247,11 @@ password: ChangeMe!2026
 Physical Android / iOS devices can't reach `localhost` — use the host machine's LAN IP:
 
 ```
-flutter run -d android --dart-define=API_BASE_URL=http://<host-lan-ip>:4000/api
-flutter run -d ios     --dart-define=API_BASE_URL=http://<host-lan-ip>:4000/api
+flutter run -d android --dart-define=API_BASE_URL=http://<host-lan-ip>:4040/api
+flutter run -d ios     --dart-define=API_BASE_URL=http://<host-lan-ip>:4040/api
 ```
 
-Android emulators can use `http://10.0.2.2:4000/api` (the emulator's loopback to host).
+Android emulators can use `http://10.0.2.2:4040/api` (the emulator's loopback to host).
 
 ---
 

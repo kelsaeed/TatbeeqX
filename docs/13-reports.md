@@ -1,4 +1,4 @@
-# 13 — Reports
+﻿# 13 — Reports
 
 The reports module runs server-side, registry-backed query builders and renders the result either as a table or a bar chart.
 
@@ -67,7 +67,7 @@ Endpoints for managing reports (`POST/PUT/DELETE /api/reports`) gate on the stan
 2. Either seed a row in `reports.js` (the seeder), or `POST /api/reports`:
 
    ```bash
-   curl -X POST http://localhost:4000/api/reports \
+   curl -X POST http://localhost:4040/api/reports \
      -H 'Authorization: Bearer ...' \
      -H 'Content-Type: application/json' \
      -d '{

@@ -429,7 +429,7 @@ class _WorkflowEditorDialogState extends ConsumerState<WorkflowEditorDialog> {
           const SizedBox(height: 12),
           const Text('Test from a shell:', style: TextStyle(fontSize: 12, color: Colors.grey)),
           SelectableText(
-            'curl -X POST http://<host>:4000/api/workflows/incoming/$code \\\n'
+            'curl -X POST http://<host>:4040/api/workflows/incoming/$code \\\n'
             '  -H "X-Workflow-Secret: $secret" \\\n'
             '  -H "Content-Type: application/json" \\\n'
             '  -d \'{"hello":"world"}\'',

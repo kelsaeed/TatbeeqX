@@ -1,4 +1,4 @@
-# 15 — File uploads
+﻿# 15 — File uploads
 
 The system has one upload endpoint (image-only, by design) that the Theme Builder and any other module can use to store branding assets.
 
@@ -70,7 +70,7 @@ The backend returns a relative URL (`/uploads/<file>`). The Flutter widgets that
 final assetBase = AppConfig.apiBaseUrl.endsWith('/api')
   ? AppConfig.apiBaseUrl.substring(0, AppConfig.apiBaseUrl.length - 4)
   : AppConfig.apiBaseUrl;
-final fullUrl = '$assetBase$path';   // e.g. http://192.168.1.10:4000/uploads/x.png
+final fullUrl = '$assetBase$path';   // e.g. http://192.168.1.10:4040/uploads/x.png
 ```
 
 This matters when the LAN client points at a non-localhost host: relative URLs would break `Image.network`.

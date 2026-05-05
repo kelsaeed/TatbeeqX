@@ -1,4 +1,4 @@
-# Project memory — TatbeeqX
+﻿# Project memory — TatbeeqX
 
 This file is the single source of truth for project context. Read it first in any new session — do not rely on chat history.
 
@@ -83,11 +83,11 @@ cd frontend
 flutter run -d windows
 ```
 
-Both must run at the same time. If the Flutter app shows "Cannot reach the server at http://localhost:4000/api", the backend is not running — start it.
+Both must run at the same time. If the Flutter app shows "Cannot reach the server at http://localhost:4040/api", the backend is not running — start it.
 
 LAN client build (target a host server's IP):
 ```
-flutter build windows --dart-define=API_BASE_URL=http://<host-ip>:4000/api
+flutter build windows --dart-define=API_BASE_URL=http://<host-ip>:4040/api
 ```
 
 The output `.exe` is at `frontend/build/windows/x64/runner/Release/tatbeeqx.exe` (or `Debug/` for debug builds). Copy the whole folder to a client machine.

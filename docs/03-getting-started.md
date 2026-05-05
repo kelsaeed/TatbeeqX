@@ -1,4 +1,4 @@
-# 03 — Getting started
+﻿# 03 — Getting started
 
 This walks a developer through a clean install on a Windows machine with no prior setup. End users should read [49-user-manual.md](49-user-manual.md) instead — this page is for people who will run the backend + frontend from source.
 
@@ -27,7 +27,7 @@ cd backend
 cp .env.example .env       # then edit .env to taste
 npm install
 npm run db:reset           # creates SQLite, runs migrations, seeds defaults
-npm run dev                # API on http://localhost:4000
+npm run dev                # API on http://localhost:4040
 ```
 
 `npm run db:reset` is idempotent — re-run it whenever you want a clean database with default seed data.
@@ -84,7 +84,7 @@ SMTP_FROM="TatbeeqX <no-reply@your-domain.com>"
 APP_URL=http://localhost:8080
 ```
 
-Restart `npm run dev`. Verify with `curl -X POST http://localhost:4000/api/auth/forgot-password -H "Content-Type: application/json" -d '{"identifier":"superadmin"}'` — you should see an email arrive (or in dev mode, the message printed to the backend console).
+Restart `npm run dev`. Verify with `curl -X POST http://localhost:4040/api/auth/forgot-password -H "Content-Type: application/json" -d '{"identifier":"superadmin"}'` — you should see an email arrive (or in dev mode, the message printed to the backend console).
 
 Full provider matrix in [SETUP.md §7](../SETUP.md#7-optional--outbound-email-smtp).
 
@@ -110,7 +110,7 @@ The same `API_BASE_URL` rule applies. CORS is open in dev (`cors()` with default
 
 ## Verifying the install
 
-1. `curl http://localhost:4000/api/health` returns `{"ok":true}`.
+1. `curl http://localhost:4040/api/health` returns `{"ok":true}`.
 2. The Flutter window logs in successfully.
 3. As Super Admin, the sidebar shows the full set: Dashboard, Companies, Branches, Users, Roles, Approvals, Audit Logs, Reports, Report Schedules, **Workflows**, Settings, Appearance, Database, Custom entities, Templates, Pages, System, System Logs, Login Activity, Webhooks, Backups, Translations.
 4. The top bar shows the **notifications bell** (Phase 4.18) — click it and you should see "No notifications."

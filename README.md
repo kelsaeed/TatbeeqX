@@ -1,4 +1,4 @@
-# TatbeeqX
+﻿# TatbeeqX
 
 [![CI](https://github.com/kelsaeed/TatbeeqX/actions/workflows/ci.yml/badge.svg)](https://github.com/kelsaeed/TatbeeqX/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -67,7 +67,7 @@ cd backend
 cp .env.example .env
 npm install
 npm run db:reset      # creates SQLite file, runs migrations, seeds defaults
-npm run dev           # API on http://localhost:4000
+npm run dev           # API on http://localhost:4040
 ```
 
 Default Super Admin credentials (change immediately after first login):
@@ -93,20 +93,20 @@ Web build:
 flutter run -d chrome
 ```
 
-The Flutter app reads the API base URL from `lib/core/config/app_config.dart`. Default is `http://localhost:4000/api`. To target a LAN server, run with:
+The Flutter app reads the API base URL from `lib/core/config/app_config.dart`. Default is `http://localhost:4040/api`. To target a LAN server, run with:
 
 ```bash
-flutter run -d windows --dart-define=API_BASE_URL=http://<server-lan-ip>:4000/api
+flutter run -d windows --dart-define=API_BASE_URL=http://<server-lan-ip>:4040/api
 ```
 
 ## LAN deployment
 
 1. Run the backend on the host machine (`npm start` or use `pm2`/`nssm` on Windows).
-2. Allow port 4000 through the Windows firewall.
+2. Allow PORT 4040 through the Windows firewall.
 3. Find the host LAN IP (`ipconfig`).
 4. On client machines, build the Flutter desktop app with the LAN IP:
    ```bash
-   flutter build windows --dart-define=API_BASE_URL=http://192.168.x.x:4000/api
+   flutter build windows --dart-define=API_BASE_URL=http://192.168.x.x:4040/api
    ```
 5. Copy `build/windows/x64/runner/Release/` to the client and launch the executable.
 
@@ -355,6 +355,6 @@ A report appears at `/reports` and can be run, viewed as a table, or shown as a 
 
 ## File uploads
 
-`POST /api/uploads/image` (auth required, multipart `file` field) — accepts PNG/JPEG/WebP/GIF/SVG/ICO up to 5 MB. Returns `{ url }`. Files live in `backend/uploads/` and are served at `http://<host>:4000/uploads/<filename>`.
+`POST /api/uploads/image` (auth required, multipart `file` field) — accepts PNG/JPEG/WebP/GIF/SVG/ICO up to 5 MB. Returns `{ url }`. Files live in `backend/uploads/` and are served at `http://<host>:4040/uploads/<filename>`.
 
 The Theme Builder uses this for logo, favicon, and background image. Paste a local file path into the secondary input and click **Upload** — no native file picker plugin needed, so no Developer Mode requirement.

@@ -22,7 +22,7 @@ services:
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
-      PORT: 4000
+      PORT: 4040
       DATABASE_URL: ${DATABASE_URL:-file:/app/data/dev.db}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?must set JWT_ACCESS_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?must set JWT_REFRESH_SECRET}
@@ -30,7 +30,7 @@ services:
       SEED_SUPERADMIN_EMAIL: ${SEED_SUPERADMIN_EMAIL:-superadmin@local}
       SEED_SUPERADMIN_PASSWORD: ${SEED_SUPERADMIN_PASSWORD:-ChangeMe!2026}
     ports:
-      - "4000:4000"
+      - "4040:4040"
     volumes:
       - data:/app/data
       - uploads:/app/uploads

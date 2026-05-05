@@ -1,4 +1,4 @@
-# 10 — Business presets
+﻿# 10 — Business presets
 
 A **business preset** is a recipe that turns a fresh install into a domain-specific app: it creates SQL tables, registers them as custom entities, creates permissions, grants them to default roles, and adds sidebar entries — all in one call.
 
@@ -49,7 +49,7 @@ A fresh install lands a Super Admin on `/setup`. The wizard calls `POST /api/bus
 ### From the API
 
 ```bash
-curl -X POST http://localhost:4000/api/business/apply \
+curl -X POST http://localhost:4040/api/business/apply \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"code": "retail"}'

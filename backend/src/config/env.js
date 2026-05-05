@@ -10,7 +10,7 @@ function required(name, fallback) {
 
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
-  port: Number(process.env.PORT ?? 4000),
+  port: Number(process.env.PORT ?? 4040),
   host: process.env.HOST ?? '0.0.0.0',
 
   databaseUrl: required('DATABASE_URL', 'file:./dev.db'),

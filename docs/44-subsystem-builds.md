@@ -1,4 +1,4 @@
-# 44 — Subsystem builds (Phase 4.12)
+﻿# 44 — Subsystem builds (Phase 4.12)
 
 TatbeeqX can be packaged as a **branded, locked-down customer binary** generated from a template. A vendor designs a setup using the full studio (custom entities, theme, reports, queries, pages), captures it as a template, and the build-subsystem CLI emits a folder the customer can ship.
 
@@ -83,7 +83,7 @@ Flags:
 `start.bat` does:
 1. `npm install --omit=dev` in `backend/` (first run only).
 2. `npx prisma migrate deploy` + `node prisma/seed.js` (first run only — creates the SQLite DB and seeds default users/roles/menus).
-3. `node src/server.js` in the background (API on `127.0.0.1:4000`).
+3. `node src/server.js` in the background (API on `127.0.0.1:4040`).
 4. Launches `app/<name>.exe` (the Flutter desktop binary).
 
 On first boot of the API, the seeder script in `boot_seeder.js`:

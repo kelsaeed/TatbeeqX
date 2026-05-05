@@ -1,4 +1,4 @@
-# Contributing to TatbeeqX
+﻿# Contributing to TatbeeqX
 
 Thanks for considering a contribution. This file explains how to run the project locally, the conventions the codebase follows, and what a good PR looks like.
 
@@ -15,7 +15,7 @@ You'll need:
 git clone https://github.com/kelsaeed/TatbeeqX
 cd TatbeeqX
 
-# 2. Backend — installs deps, runs migrations, seeds data, starts on :4000
+# 2. Backend — installs deps, runs migrations, seeds data, starts on :4040
 cd backend
 cp .env.example .env
 npm install

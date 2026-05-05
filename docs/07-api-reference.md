@@ -1,7 +1,7 @@
-# 07 — API reference
+﻿# 07 — API reference
 
-Base URL (dev): `http://localhost:4000/api`
-Base URL (LAN client): `http://<host-lan-ip>:4000/api`
+Base URL (dev): `http://localhost:4040/api`
+Base URL (LAN client): `http://<host-lan-ip>:4040/api`
 
 All endpoints (other than `/auth/login`, `/auth/refresh`, `/themes/active`, `/health`) require a valid `Authorization: Bearer <accessToken>` header. The Flutter `ApiClient` attaches this automatically and refreshes on 401.
 

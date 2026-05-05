@@ -96,7 +96,7 @@ The seed is idempotent for permissions, modules, menu items, and roles — re-ru
 - Run nginx behind a TLS terminator (Caddy / Traefik / a CDN). The current `deploy/nginx.conf` is plain HTTP for clarity.
 - Set strong `JWT_*_SECRET` values, not the defaults.
 - Set a strong `SEED_SUPERADMIN_PASSWORD` and rotate the seeded admin's password from the UI on first login.
-- Restrict `4000` (the api port) so only `web` can reach it. Today it's published on the host for ease of debugging.
+- Restrict `4040` (the api port) so only `web` can reach it. Today it's published on the host for ease of debugging.
 - Mount `data` and `uploads` on durable storage and back them up regularly.
 - For multi-instance scale-out, run only one api replica until you've moved off SQLite — the cron loop's claim-based locking is correct only when all instances share a Postgres/MySQL primary.
 

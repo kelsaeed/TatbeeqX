@@ -24,9 +24,9 @@ RUN mkdir -p uploads .env-backups
 
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
-    PORT=4000
+    PORT=4040
 
-EXPOSE 4000
+EXPOSE 4040
 
 # Wait-for-it loops live in the entrypoint so the server doesn't crash when
 # Postgres is still warming up on first start. We keep it tiny: try a Prisma

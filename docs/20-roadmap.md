@@ -1,4 +1,4 @@
-# 20 — Roadmap
+﻿# 20 — Roadmap
 
 What is *not yet built*. None of this is committed work — it's a queue. Pull items into a Phase 4 doc when prioritized, then mark them ✅ here as they ship.
 
@@ -51,7 +51,7 @@ The mobile shell candidate slipped to Phase 4.12; everything else is checked off
 ## Cloud-first deploy
 
 - [ ] **Docker compose** — one service for the API, one for Postgres, one for nginx. Out-of-the-box `docker compose up` for a cloud install.
-- [ ] **HTTPS reverse proxy template** — nginx config that terminates TLS and proxies to `localhost:4000`.
+- [ ] **HTTPS reverse proxy template** — nginx config that terminates TLS and proxies to `localhost:4040`.
 - [ ] **Multi-tenant single-DB option** — a `tenantId` foreign key on the top-level entities so one DB hosts many isolated customers. (Current: many companies in one DB; isolation is by company filtering.)
 
 ## Operations
