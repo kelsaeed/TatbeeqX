@@ -554,5 +554,15 @@
   "reset2FA": "Réinitialiser la 2FA",
   "reset2FAConfirm": "Réinitialiser la 2FA pour \"{username}\" ? Cela désactive leur authentification à deux facteurs et supprime leurs codes de récupération. À utiliser quand l'utilisateur a perdu son authentificateur ET tous ses codes de récupération.",
   "reset2FASuccess": "2FA réinitialisée pour {username}",
-  "reset2FAWasNotEnabled": "{username} n'avait pas la 2FA activée — rien à réinitialiser."
+  "reset2FAWasNotEnabled": "{username} n'avait pas la 2FA activée — rien à réinitialiser.",
+  "forgotPasswordTitle": "Mot de passe oublié",
+  "forgotPasswordLink": "Mot de passe oublié ?",
+  "forgotPasswordPrompt": "Entrez votre nom d'utilisateur ou e-mail. Si le compte existe, nous enverrons un lien de réinitialisation à usage unique.",
+  "sending": "Envoi en cours…",
+  "sendResetLink": "Envoyer le lien de réinitialisation",
+  "backToSignIn": "Retour à la connexion",
+  "checkYourEmail": "Vérifiez votre e-mail",
+  "resetLinkSentMessage": "Si un compte existe pour ce nom d'utilisateur ou e-mail, un lien de réinitialisation a été envoyé. Le lien est valide pour la prochaine heure et ne peut être utilisé qu'une seule fois.",
+  "emailNotConfiguredOnServer": "L'e-mail n'est pas configuré sur ce serveur. Demandez à un administrateur de réinitialiser votre mot de passe manuellement.",
+  "somethingWentWrongDetail": "Une erreur s'est produite : {error}"
 }

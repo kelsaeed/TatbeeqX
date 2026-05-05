@@ -960,5 +960,22 @@
         "type": "String"
       }
     }
+  },
+  "forgotPasswordTitle": "Forgot password",
+  "forgotPasswordLink": "Forgot password?",
+  "forgotPasswordPrompt": "Enter your username or email. If the account exists, we'll send a one-time reset link.",
+  "sending": "Sending…",
+  "sendResetLink": "Send reset link",
+  "backToSignIn": "Back to sign in",
+  "checkYourEmail": "Check your email",
+  "resetLinkSentMessage": "If an account exists for that username or email, a reset link has been sent. The link is valid for the next hour and can only be used once.",
+  "emailNotConfiguredOnServer": "Email isn't configured on this server. Ask an admin to reset your password manually.",
+  "somethingWentWrongDetail": "Something went wrong: {error}",
+  "@somethingWentWrongDetail": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   }
 }

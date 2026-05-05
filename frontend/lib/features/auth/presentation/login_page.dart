@@ -191,7 +191,7 @@ class _LoginForm extends StatelessWidget {
                 child: TextButton(
                   onPressed: loading ? null : () => GoRouter.of(context).go('/forgot-password'),
                   // Page is at /forgot-password (public route, see app_router.dart).
-                  child: const Text('Forgot password?'),
+                  child: Text(t.forgotPasswordLink),
                 ),
               ),
               Text(

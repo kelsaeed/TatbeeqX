@@ -3231,6 +3231,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{username} did not have 2FA enabled — nothing to reset.'**
   String reset2FAWasNotEnabled(String username);
+
+  /// No description provided for @forgotPasswordTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot password'**
+  String get forgotPasswordTitle;
+
+  /// No description provided for @forgotPasswordLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot password?'**
+  String get forgotPasswordLink;
+
+  /// No description provided for @forgotPasswordPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your username or email. If the account exists, we\'ll send a one-time reset link.'**
+  String get forgotPasswordPrompt;
+
+  /// No description provided for @sending.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending…'**
+  String get sending;
+
+  /// No description provided for @sendResetLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Send reset link'**
+  String get sendResetLink;
+
+  /// No description provided for @backToSignIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to sign in'**
+  String get backToSignIn;
+
+  /// No description provided for @checkYourEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your email'**
+  String get checkYourEmail;
+
+  /// No description provided for @resetLinkSentMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'If an account exists for that username or email, a reset link has been sent. The link is valid for the next hour and can only be used once.'**
+  String get resetLinkSentMessage;
+
+  /// No description provided for @emailNotConfiguredOnServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Email isn\'t configured on this server. Ask an admin to reset your password manually.'**
+  String get emailNotConfiguredOnServer;
+
+  /// No description provided for @somethingWentWrongDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong: {error}'**
+  String somethingWentWrongDetail(String error);
 }
 
 class _AppLocalizationsDelegate

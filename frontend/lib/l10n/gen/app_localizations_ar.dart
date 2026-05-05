@@ -1814,4 +1814,39 @@ class AppLocalizationsAr extends AppLocalizations {
   String reset2FAWasNotEnabled(String username) {
     return 'لم تكن المصادقة الثنائية مفعَّلة لـ $username — لا شيء لإعادة تعيينه.';
   }
+
+  @override
+  String get forgotPasswordTitle => 'نسيت كلمة المرور';
+
+  @override
+  String get forgotPasswordLink => 'نسيت كلمة المرور؟';
+
+  @override
+  String get forgotPasswordPrompt =>
+      'أدخل اسم المستخدم أو البريد الإلكتروني. إذا كان الحساب موجودًا، سنرسل لك رابط إعادة تعيين لمرة واحدة.';
+
+  @override
+  String get sending => 'جاري الإرسال…';
+
+  @override
+  String get sendResetLink => 'إرسال رابط إعادة التعيين';
+
+  @override
+  String get backToSignIn => 'العودة إلى تسجيل الدخول';
+
+  @override
+  String get checkYourEmail => 'تحقق من بريدك الإلكتروني';
+
+  @override
+  String get resetLinkSentMessage =>
+      'إذا كان هناك حساب بهذا الاسم أو البريد الإلكتروني، فقد تم إرسال رابط إعادة التعيين. الرابط صالح لمدة ساعة ويمكن استخدامه مرة واحدة فقط.';
+
+  @override
+  String get emailNotConfiguredOnServer =>
+      'البريد الإلكتروني غير مُهيأ على هذا الخادم. اطلب من المسؤول إعادة تعيين كلمة المرور يدويًا.';
+
+  @override
+  String somethingWentWrongDetail(String error) {
+    return 'حدث خطأ ما: $error';
+  }
 }

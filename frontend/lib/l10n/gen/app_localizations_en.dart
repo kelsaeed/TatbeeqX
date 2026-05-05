@@ -1800,4 +1800,39 @@ class AppLocalizationsEn extends AppLocalizations {
   String reset2FAWasNotEnabled(String username) {
     return '$username did not have 2FA enabled — nothing to reset.';
   }
+
+  @override
+  String get forgotPasswordTitle => 'Forgot password';
+
+  @override
+  String get forgotPasswordLink => 'Forgot password?';
+
+  @override
+  String get forgotPasswordPrompt =>
+      'Enter your username or email. If the account exists, we\'ll send a one-time reset link.';
+
+  @override
+  String get sending => 'Sending…';
+
+  @override
+  String get sendResetLink => 'Send reset link';
+
+  @override
+  String get backToSignIn => 'Back to sign in';
+
+  @override
+  String get checkYourEmail => 'Check your email';
+
+  @override
+  String get resetLinkSentMessage =>
+      'If an account exists for that username or email, a reset link has been sent. The link is valid for the next hour and can only be used once.';
+
+  @override
+  String get emailNotConfiguredOnServer =>
+      'Email isn\'t configured on this server. Ask an admin to reset your password manually.';
+
+  @override
+  String somethingWentWrongDetail(String error) {
+    return 'Something went wrong: $error';
+  }
 }

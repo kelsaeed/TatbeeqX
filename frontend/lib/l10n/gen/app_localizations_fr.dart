@@ -1815,4 +1815,39 @@ class AppLocalizationsFr extends AppLocalizations {
   String reset2FAWasNotEnabled(String username) {
     return '$username n\'avait pas la 2FA activée — rien à réinitialiser.';
   }
+
+  @override
+  String get forgotPasswordTitle => 'Mot de passe oublié';
+
+  @override
+  String get forgotPasswordLink => 'Mot de passe oublié ?';
+
+  @override
+  String get forgotPasswordPrompt =>
+      'Entrez votre nom d\'utilisateur ou e-mail. Si le compte existe, nous enverrons un lien de réinitialisation à usage unique.';
+
+  @override
+  String get sending => 'Envoi en cours…';
+
+  @override
+  String get sendResetLink => 'Envoyer le lien de réinitialisation';
+
+  @override
+  String get backToSignIn => 'Retour à la connexion';
+
+  @override
+  String get checkYourEmail => 'Vérifiez votre e-mail';
+
+  @override
+  String get resetLinkSentMessage =>
+      'Si un compte existe pour ce nom d\'utilisateur ou e-mail, un lien de réinitialisation a été envoyé. Le lien est valide pour la prochaine heure et ne peut être utilisé qu\'une seule fois.';
+
+  @override
+  String get emailNotConfiguredOnServer =>
+      'L\'e-mail n\'est pas configuré sur ce serveur. Demandez à un administrateur de réinitialiser votre mot de passe manuellement.';
+
+  @override
+  String somethingWentWrongDetail(String error) {
+    return 'Une erreur s\'est produite : $error';
+  }
 }
