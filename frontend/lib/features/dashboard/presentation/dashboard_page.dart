@@ -9,14 +9,26 @@ import '../../../shared/widgets/loading_view.dart';
 import '../../../shared/widgets/page_header.dart';
 import '../../auth/application/auth_controller.dart';
 
-final _dashboardSummaryProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+// Single boot fetch — bundles summary + audit-by-day + audit-by-module
+// into one round-trip. The three providers below derive their shapes
+// from this one Future, so they all light up together when the bundled
+// payload arrives. See backend/src/routes/dashboard.js — `/bootstrap`.
+final _dashboardBootstrapProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final api = ref.watch(apiClientProvider);
-  return api.getJson('/dashboard/summary');
+  return api.getJson('/dashboard/bootstrap', query: {
+    'auditByDayDays': 14,
+    'auditByModuleDays': 30,
+  });
+});
+
+final _dashboardSummaryProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final boot = await ref.watch(_dashboardBootstrapProvider.future);
+  return (boot['summary'] as Map).cast<String, dynamic>();
 });
 
 final _auditByDayProvider = FutureProvider.autoDispose<List<BarChartData>>((ref) async {
-  final api = ref.watch(apiClientProvider);
-  final res = await api.getJson('/dashboard/audit-by-day', query: {'days': 14});
+  final boot = await ref.watch(_dashboardBootstrapProvider.future);
+  final res = (boot['auditByDay'] as Map).cast<String, dynamic>();
   final series = (res['series'] as List? ?? const []).cast<Map<String, dynamic>>();
   return series.map((m) {
     final d = DateTime.tryParse(m['date'].toString());
@@ -26,8 +38,8 @@ final _auditByDayProvider = FutureProvider.autoDispose<List<BarChartData>>((ref)
 });
 
 final _auditByModuleProvider = FutureProvider.autoDispose<List<BarChartData>>((ref) async {
-  final api = ref.watch(apiClientProvider);
-  final res = await api.getJson('/dashboard/audit-by-module', query: {'days': 30});
+  final boot = await ref.watch(_dashboardBootstrapProvider.future);
+  final res = (boot['auditByModule'] as Map).cast<String, dynamic>();
   final series = (res['series'] as List? ?? const []).cast<Map<String, dynamic>>();
   return series.map((m) => BarChartData(
         label: m['entity'].toString(),

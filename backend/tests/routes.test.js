@@ -109,6 +109,38 @@ describe('GET /api/menus', () => {
   });
 });
 
+describe('GET /api/dashboard/bootstrap (Phase 4.20)', () => {
+  it('rejects without a token', async () => {
+    const res = await request(app).get('/api/dashboard/bootstrap');
+    expect(res.status).toBe(401);
+  });
+
+  it('returns summary + auditByDay + auditByModule in one payload', async () => {
+    const res = await request(app)
+      .get('/api/dashboard/bootstrap')
+      .set('Authorization', `Bearer ${accessToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.summary).toBeDefined();
+    expect(res.body.summary.counts).toBeDefined();
+    expect(typeof res.body.summary.counts.users).toBe('number');
+    expect(Array.isArray(res.body.summary.recentLogins)).toBe(true);
+    expect(Array.isArray(res.body.summary.recentAudit)).toBe(true);
+    expect(res.body.auditByDay).toBeDefined();
+    expect(Array.isArray(res.body.auditByDay.series)).toBe(true);
+    expect(res.body.auditByModule).toBeDefined();
+    expect(Array.isArray(res.body.auditByModule.series)).toBe(true);
+  });
+
+  it('honors auditByDayDays / auditByModuleDays query params', async () => {
+    const res = await request(app)
+      .get('/api/dashboard/bootstrap?auditByDayDays=7&auditByModuleDays=15')
+      .set('Authorization', `Bearer ${accessToken}`);
+    expect(res.status).toBe(200);
+    // audit-by-day backfills empty days; series length = days
+    expect(res.body.auditByDay.series.length).toBe(7);
+  });
+});
+
 describe('GET /api/templates/kinds', () => {
   it('exposes the supported kinds (Phase 4.2)', async () => {
     const res = await request(app)
