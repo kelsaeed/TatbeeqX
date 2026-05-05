@@ -31,6 +31,13 @@ class SetupController extends StateNotifier<AsyncValue<BusinessState>> {
     }
   }
 
+  // Phase 4.20 — apply a business-state payload that came in via the
+  // auth bundle (/auth/me + /auth/login). Same shape as /business/state
+  // returns. No HTTP.
+  void seedFromAuth(Map<String, dynamic> businessJson) {
+    state = AsyncValue.data(BusinessState.fromJson(businessJson));
+  }
+
   Future<List<Map<String, dynamic>>> listPresets() async {
     final res = await _api.getJson('/business/presets');
     return (res['items'] as List).cast<Map<String, dynamic>>();

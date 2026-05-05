@@ -16,6 +16,7 @@ class AuthState {
     this.companies,
     this.menusJson,
     this.sidebarPagesJson,
+    this.businessJson,
   });
 
   final AuthUser? user;
@@ -38,6 +39,10 @@ class AuthState {
   // shell falls back to MenuController.load().
   final Map<String, dynamic>? menusJson;
   final List<Map<String, dynamic>>? sidebarPagesJson;
+  // Phase 4.20 — business-state seed for the setup-redirect gate.
+  // Null = legacy backend; app.dart falls back to firing
+  // setupController.refresh() on auth transition.
+  final Map<String, dynamic>? businessJson;
 
   bool get isLoggedIn => user != null;
 
@@ -56,6 +61,7 @@ class AuthState {
     List<Map<String, dynamic>>? companies,
     Map<String, dynamic>? menusJson,
     List<Map<String, dynamic>>? sidebarPagesJson,
+    Map<String, dynamic>? businessJson,
     bool clearUser = false,
   }) {
     return AuthState(
@@ -68,6 +74,7 @@ class AuthState {
       companies: companies ?? this.companies,
       menusJson: menusJson ?? this.menusJson,
       sidebarPagesJson: sidebarPagesJson ?? this.sidebarPagesJson,
+      businessJson: businessJson ?? this.businessJson,
     );
   }
 }
@@ -107,6 +114,7 @@ class AuthController extends StateNotifier<AuthState> {
         companies: session.companies,
         menusJson: session.menusJson,
         sidebarPagesJson: session.sidebarPagesJson,
+        businessJson: session.businessJson,
       );
     } catch (_) {
       await _repo.logout();
@@ -138,6 +146,7 @@ class AuthController extends StateNotifier<AuthState> {
         companies: session.companies,
         menusJson: session.menusJson,
         sidebarPagesJson: session.sidebarPagesJson,
+        businessJson: session.businessJson,
       );
       return LoginOutcome.success();
     } on ApiException catch (e) {
@@ -169,6 +178,7 @@ class AuthController extends StateNotifier<AuthState> {
         companies: session.companies,
         menusJson: session.menusJson,
         sidebarPagesJson: session.sidebarPagesJson,
+        businessJson: session.businessJson,
       );
       return true;
     } on ApiException catch (e) {
@@ -194,6 +204,7 @@ class AuthController extends StateNotifier<AuthState> {
         companies: session.companies,
         menusJson: session.menusJson,
         sidebarPagesJson: session.sidebarPagesJson,
+        businessJson: session.businessJson,
       );
     } catch (_) { /* leave state intact on transient failure */ }
   }

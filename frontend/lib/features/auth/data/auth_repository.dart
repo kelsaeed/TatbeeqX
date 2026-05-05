@@ -9,6 +9,7 @@ class AuthSession {
     this.companies,
     this.menusJson,
     this.sidebarPagesJson,
+    this.businessJson,
   });
 
   final AuthUser user;
@@ -30,6 +31,10 @@ class AuthSession {
   // Phase 4.20 — page-row list as /api/pages/sidebar returns. Merged
   // with the menu tree by MenuController.
   final List<Map<String, dynamic>>? sidebarPagesJson;
+  // Phase 4.20 — `{ configured, businessType, customEntityCount }`
+  // matching /api/business/state. Lets the setup-redirect gate paint
+  // without firing /business/state on every login.
+  final Map<String, dynamic>? businessJson;
 }
 
 // Phase 4.16 follow-up — login can return either a full session or
@@ -128,6 +133,9 @@ class AuthRepository {
     final sidebarPagesJson = res['sidebarPages'] is List
         ? (res['sidebarPages'] as List).cast<Map>().map((m) => m.cast<String, dynamic>()).toList()
         : null;
+    final businessJson = res['business'] is Map
+        ? (res['business'] as Map).cast<String, dynamic>()
+        : null;
     return AuthSession(
       user: user,
       permissions: perms,
@@ -135,6 +143,7 @@ class AuthRepository {
       companies: companies,
       menusJson: menusJson,
       sidebarPagesJson: sidebarPagesJson,
+      businessJson: businessJson,
     );
   }
 }

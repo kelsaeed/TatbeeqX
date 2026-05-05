@@ -50,7 +50,15 @@ class _TatbeeqXAppState extends ConsumerState<TatbeeqXApp> {
         ?? SubsystemInfo.empty;
     ref.listen(authControllerProvider, (prev, next) {
       if (next.isLoggedIn && (prev == null || !prev.isLoggedIn)) {
-        ref.read(setupControllerProvider.notifier).refresh();
+        // Phase 4.20 — seed from the auth payload when present so we
+        // don't fire /api/business/state on every login. Falls back to
+        // refresh() only on legacy backends or when the seed is missing.
+        final seed = next.businessJson;
+        if (seed != null) {
+          ref.read(setupControllerProvider.notifier).seedFromAuth(seed);
+        } else {
+          ref.read(setupControllerProvider.notifier).refresh();
+        }
       }
     });
 

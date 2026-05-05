@@ -114,6 +114,18 @@ describe('GET /api/auth/me', () => {
     expect(res.body.notifications.unread).toBeGreaterThanOrEqual(0);
   });
 
+  it('includes business state seed for the setup gate (Phase 4.20)', async () => {
+    const res = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${accessToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.business).toBeDefined();
+    expect(typeof res.body.business.configured).toBe('boolean');
+    expect(typeof res.body.business.customEntityCount).toBe('number');
+    // businessType is null when no preset has been applied; otherwise a string.
+    expect(['string', 'object']).toContain(typeof res.body.business.businessType);
+  });
+
   it('includes menus + sidebarPages seeds for the sidebar (Phase 4.20)', async () => {
     const res = await request(app)
       .get('/api/auth/me')
