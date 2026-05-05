@@ -92,16 +92,34 @@ describe('GET /api/auth/me', () => {
     expect(typeof res.body.notifications.unread).toBe('number');
     expect(res.body.notifications.unread).toBeGreaterThanOrEqual(0);
   });
+
+  it('includes companies seed for the topbar switcher (Phase 4.20)', async () => {
+    const res = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${accessToken}`);
+    expect(res.status).toBe(200);
+    // Super admin has companies.view implicitly; seeded companies must be a list of {id, name}.
+    expect(Array.isArray(res.body.companies)).toBe(true);
+    if (res.body.companies.length > 0) {
+      const sample = res.body.companies[0];
+      expect(typeof sample.id).toBe('number');
+      expect(typeof sample.name).toBe('string');
+      // Slim payload — must NOT leak heavier fields the full /companies endpoint returns.
+      expect(sample.legalName).toBeUndefined();
+      expect(sample._count).toBeUndefined();
+    }
+  });
 });
 
 describe('POST /api/auth/login (Phase 4.20 bell seed)', () => {
-  it('login response includes notifications.unread', async () => {
+  it('login response includes notifications.unread + companies seeds', async () => {
     const res = await request(app)
       .post('/api/auth/login')
       .send({ username: SEED_USERNAME, password: SEED_PASSWORD });
     expect(res.status).toBe(200);
     expect(res.body.notifications).toBeDefined();
     expect(typeof res.body.notifications.unread).toBe('number');
+    expect(Array.isArray(res.body.companies)).toBe(true);
   });
 });
 

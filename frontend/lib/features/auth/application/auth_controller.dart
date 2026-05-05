@@ -13,6 +13,7 @@ class AuthState {
     this.loading = false,
     this.error,
     this.unreadNotifications,
+    this.companies,
   });
 
   final AuthUser? user;
@@ -26,6 +27,9 @@ class AuthState {
   // the auth payload doesn't include it (older backends, refreshed
   // session via legacy /refresh — bell falls back to its 45s poll).
   final int? unreadNotifications;
+  // Phase 4.20 — slim {id, name} company list for the topbar switcher.
+  // Same null vs empty-list semantics as unreadNotifications.
+  final List<Map<String, dynamic>>? companies;
 
   bool get isLoggedIn => user != null;
 
@@ -41,6 +45,7 @@ class AuthState {
     bool? loading,
     String? error,
     int? unreadNotifications,
+    List<Map<String, dynamic>>? companies,
     bool clearUser = false,
   }) {
     return AuthState(
@@ -50,6 +55,7 @@ class AuthState {
       loading: loading ?? this.loading,
       error: error,
       unreadNotifications: unreadNotifications ?? this.unreadNotifications,
+      companies: companies ?? this.companies,
     );
   }
 }
@@ -86,6 +92,7 @@ class AuthController extends StateNotifier<AuthState> {
         permissions: session.permissions,
         bootstrapped: true,
         unreadNotifications: session.unreadNotifications,
+        companies: session.companies,
       );
     } catch (_) {
       await _repo.logout();
@@ -114,6 +121,7 @@ class AuthController extends StateNotifier<AuthState> {
         permissions: session.permissions,
         bootstrapped: true,
         unreadNotifications: session.unreadNotifications,
+        companies: session.companies,
       );
       return LoginOutcome.success();
     } on ApiException catch (e) {
@@ -142,6 +150,7 @@ class AuthController extends StateNotifier<AuthState> {
         permissions: session.permissions,
         bootstrapped: true,
         unreadNotifications: session.unreadNotifications,
+        companies: session.companies,
       );
       return true;
     } on ApiException catch (e) {
@@ -164,6 +173,7 @@ class AuthController extends StateNotifier<AuthState> {
         permissions: session.permissions,
         bootstrapped: true,
         unreadNotifications: session.unreadNotifications,
+        companies: session.companies,
       );
     } catch (_) { /* leave state intact on transient failure */ }
   }

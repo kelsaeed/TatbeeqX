@@ -2,7 +2,12 @@ import '../../../core/network/api_client.dart';
 import '../domain/auth_user.dart';
 
 class AuthSession {
-  AuthSession({required this.user, required this.permissions, this.unreadNotifications});
+  AuthSession({
+    required this.user,
+    required this.permissions,
+    this.unreadNotifications,
+    this.companies,
+  });
 
   final AuthUser user;
   final Set<String> permissions;
@@ -10,6 +15,12 @@ class AuthSession {
   // /auth/me. Lets the topbar bell skip its boot-time GET and render
   // the badge immediately after auth completes.
   final int? unreadNotifications;
+  // Phase 4.20 — slim {id, name} list of companies the user can see,
+  // for the topbar switcher. Empty list means the user lacks
+  // companies.view; null means the auth payload didn't include the
+  // field (older backend), in which case the switcher falls back to a
+  // GET /companies on its own.
+  final List<Map<String, dynamic>>? companies;
 }
 
 // Phase 4.16 follow-up — login can return either a full session or
@@ -99,6 +110,14 @@ class AuthRepository {
     final perms = (res['permissions'] as List? ?? const []).map((e) => e.toString()).toSet();
     final notif = res['notifications'];
     final unread = notif is Map ? (notif['unread'] as num?)?.toInt() : null;
-    return AuthSession(user: user, permissions: perms, unreadNotifications: unread);
+    final companies = res.containsKey('companies') && res['companies'] is List
+        ? (res['companies'] as List).cast<Map>().map((m) => m.cast<String, dynamic>()).toList()
+        : null;
+    return AuthSession(
+      user: user,
+      permissions: perms,
+      unreadNotifications: unread,
+      companies: companies,
+    );
   }
 }

@@ -143,13 +143,16 @@ router.post(
     const accessToken = signAccessToken({ sub: user.id });
     const refreshToken = await issueRefreshToken({ userId: user.id, req });
 
-    // Phase 4.20 — fold the unread-notifications count into the auth
-    // payload so the topbar bell can render its badge without a
-    // separate boot-time GET. Loaded in parallel with permissions.
-    const [permissions, unreadNotifications] = await Promise.all([
+    // Phase 4.20 — fold notifications + companies into the auth payload
+    // so the topbar bell + company switcher don't need separate
+    // boot-time GETs. Companies query is slim (id+name only); the full
+    // /companies endpoint stays the source for the admin pages.
+    const [permissions, unreadNotifications, companies] = await Promise.all([
       loadUserPermissions(user.id),
       prisma.notification.count({ where: { userId: user.id, readAt: null } }),
+      prisma.company.findMany({ orderBy: { id: 'asc' }, select: { id: true, name: true } }),
     ]);
+    const canSeeCompanies = user.isSuperAdmin || permissions.has('companies.view');
 
     await writeAudit({
       req: { ...req, user },
@@ -182,6 +185,7 @@ router.post(
       },
       permissions: Array.from(permissions),
       notifications: { unread: unreadNotifications },
+      companies: canSeeCompanies ? companies : [],
     });
   }),
 );
@@ -290,16 +294,19 @@ router.get(
   '/me',
   authenticate,
   asyncHandler(async (req, res) => {
-    // Phase 4.20 — fetch user + unread count in parallel so the bell
-    // badge is seeded straight from the bootstrap call. See same
-    // payload shape on /auth/login and /auth/2fa/challenge.
-    const [user, unreadNotifications] = await Promise.all([
+    // Phase 4.20 — fetch user + unread + companies in parallel so the
+    // bell badge AND the topbar company switcher are seeded straight
+    // from the bootstrap call. Same payload shape as /auth/login and
+    // /auth/2fa/challenge.
+    const [user, unreadNotifications, companies] = await Promise.all([
       prisma.user.findUnique({
         where: { id: req.user.id },
         include: { company: true, branch: true },
       }),
       prisma.notification.count({ where: { userId: req.user.id, readAt: null } }),
+      prisma.company.findMany({ orderBy: { id: 'asc' }, select: { id: true, name: true } }),
     ]);
+    const canSeeCompanies = req.user.isSuperAdmin || req.permissions.has('companies.view');
     res.json({
       user: {
         id: user.id,
@@ -319,6 +326,7 @@ router.get(
       },
       permissions: Array.from(req.permissions),
       notifications: { unread: unreadNotifications },
+      companies: canSeeCompanies ? companies : [],
     });
   }),
 );
@@ -488,10 +496,12 @@ router.post(
     const accessToken = signAccessToken({ sub: user.id });
     const refreshToken = await issueRefreshToken({ userId: user.id, req });
     // Phase 4.20 — same boot-fetch fold as /auth/login.
-    const [permissions, unreadNotifications] = await Promise.all([
+    const [permissions, unreadNotifications, companies] = await Promise.all([
       loadUserPermissions(user.id),
       prisma.notification.count({ where: { userId: user.id, readAt: null } }),
+      prisma.company.findMany({ orderBy: { id: 'asc' }, select: { id: true, name: true } }),
     ]);
+    const canSeeCompanies = user.isSuperAdmin || permissions.has('companies.view');
     await writeAudit({ req: { ...req, user }, action: 'login', entity: 'User', entityId: user.id, metadata: { with2FA: true } });
     await recordLoginEvent({ userId: user.id, username: user.username, event: 'login', success: true, req });
 
@@ -506,6 +516,7 @@ router.post(
       },
       permissions: Array.from(permissions),
       notifications: { unread: unreadNotifications },
+      companies: canSeeCompanies ? companies : [],
     });
   }),
 );

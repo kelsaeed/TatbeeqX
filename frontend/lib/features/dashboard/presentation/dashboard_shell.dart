@@ -451,7 +451,16 @@ class _CompanySwitcherState extends ConsumerState<_CompanySwitcher> {
     if (c != null) {
       _current = {'id': c.id, 'name': c.name};
     }
-    Future.microtask(_loadCompanies);
+    // Phase 4.20 — seed from auth state when the auth payload included
+    // the slim {id, name} company list. Falls back to a /companies GET
+    // only when the seed is missing (older backend, refresh-only path).
+    final seeded = ref.read(authControllerProvider).companies;
+    if (seeded != null) {
+      _companies = seeded;
+      _loaded = true;
+    } else {
+      Future.microtask(_loadCompanies);
+    }
   }
 
   Future<void> _loadCompanies() async {
