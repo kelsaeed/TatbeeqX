@@ -2,10 +2,14 @@ import '../../../core/network/api_client.dart';
 import '../domain/auth_user.dart';
 
 class AuthSession {
-  AuthSession({required this.user, required this.permissions});
+  AuthSession({required this.user, required this.permissions, this.unreadNotifications});
 
   final AuthUser user;
   final Set<String> permissions;
+  // Phase 4.20 — seeded from /auth/login, /auth/2fa/challenge, and
+  // /auth/me. Lets the topbar bell skip its boot-time GET and render
+  // the badge immediately after auth completes.
+  final int? unreadNotifications;
 }
 
 // Phase 4.16 follow-up — login can return either a full session or
@@ -93,6 +97,8 @@ class AuthRepository {
   AuthSession _toSession(Map<String, dynamic> res) {
     final user = AuthUser.fromJson(res['user'] as Map<String, dynamic>);
     final perms = (res['permissions'] as List? ?? const []).map((e) => e.toString()).toSet();
-    return AuthSession(user: user, permissions: perms);
+    final notif = res['notifications'];
+    final unread = notif is Map ? (notif['unread'] as num?)?.toInt() : null;
+    return AuthSession(user: user, permissions: perms, unreadNotifications: unread);
   }
 }

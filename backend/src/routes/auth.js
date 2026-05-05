@@ -143,7 +143,13 @@ router.post(
     const accessToken = signAccessToken({ sub: user.id });
     const refreshToken = await issueRefreshToken({ userId: user.id, req });
 
-    const permissions = await loadUserPermissions(user.id);
+    // Phase 4.20 — fold the unread-notifications count into the auth
+    // payload so the topbar bell can render its badge without a
+    // separate boot-time GET. Loaded in parallel with permissions.
+    const [permissions, unreadNotifications] = await Promise.all([
+      loadUserPermissions(user.id),
+      prisma.notification.count({ where: { userId: user.id, readAt: null } }),
+    ]);
 
     await writeAudit({
       req: { ...req, user },
@@ -175,6 +181,7 @@ router.post(
         branch: user.branch ? { id: user.branch.id, name: user.branch.name } : null,
       },
       permissions: Array.from(permissions),
+      notifications: { unread: unreadNotifications },
     });
   }),
 );
@@ -283,10 +290,16 @@ router.get(
   '/me',
   authenticate,
   asyncHandler(async (req, res) => {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      include: { company: true, branch: true },
-    });
+    // Phase 4.20 — fetch user + unread count in parallel so the bell
+    // badge is seeded straight from the bootstrap call. See same
+    // payload shape on /auth/login and /auth/2fa/challenge.
+    const [user, unreadNotifications] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: req.user.id },
+        include: { company: true, branch: true },
+      }),
+      prisma.notification.count({ where: { userId: req.user.id, readAt: null } }),
+    ]);
     res.json({
       user: {
         id: user.id,
@@ -305,6 +318,7 @@ router.get(
         totpEnabledAt: user.totpEnabledAt,
       },
       permissions: Array.from(req.permissions),
+      notifications: { unread: unreadNotifications },
     });
   }),
 );
@@ -473,7 +487,11 @@ router.post(
     await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     const accessToken = signAccessToken({ sub: user.id });
     const refreshToken = await issueRefreshToken({ userId: user.id, req });
-    const permissions = await loadUserPermissions(user.id);
+    // Phase 4.20 — same boot-fetch fold as /auth/login.
+    const [permissions, unreadNotifications] = await Promise.all([
+      loadUserPermissions(user.id),
+      prisma.notification.count({ where: { userId: user.id, readAt: null } }),
+    ]);
     await writeAudit({ req: { ...req, user }, action: 'login', entity: 'User', entityId: user.id, metadata: { with2FA: true } });
     await recordLoginEvent({ userId: user.id, username: user.username, event: 'login', success: true, req });
 
@@ -487,6 +505,7 @@ router.post(
         branch: user.branch ? { id: user.branch.id, name: user.branch.name } : null,
       },
       permissions: Array.from(permissions),
+      notifications: { unread: unreadNotifications },
     });
   }),
 );

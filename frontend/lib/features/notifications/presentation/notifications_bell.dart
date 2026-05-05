@@ -4,6 +4,10 @@
 // full list on open; tapping a notification marks it read, optionally
 // navigates to its `link`, and refreshes the badge. A "View all" link
 // at the bottom opens the dedicated /notifications page.
+//
+// Phase 4.20 — initial badge value comes from authControllerProvider
+// (seeded by /auth/login + /auth/me), so the bell skips its boot-time
+// GET. The 45s poll keeps the badge fresh after that.
 
 import 'dart:async';
 
@@ -13,6 +17,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/providers.dart';
+import '../../auth/application/auth_controller.dart';
 
 class NotificationsBell extends ConsumerStatefulWidget {
   const NotificationsBell({super.key});
@@ -28,7 +33,15 @@ class _NotificationsBellState extends ConsumerState<NotificationsBell> {
   @override
   void initState() {
     super.initState();
-    _refresh();
+    // Seed from auth state — the auth payload (login + /me) carries
+    // notifications.unread, so we skip the boot-time GET. If the seed
+    // is missing (older backend, refresh path), fall back to one fetch.
+    final seeded = ref.read(authControllerProvider).unreadNotifications;
+    if (seeded != null) {
+      _unread = seeded;
+    } else {
+      _refresh();
+    }
     _poll = Timer.periodic(const Duration(seconds: 45), (_) => _refresh());
   }
 

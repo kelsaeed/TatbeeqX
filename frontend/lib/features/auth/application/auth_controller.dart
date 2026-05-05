@@ -12,6 +12,7 @@ class AuthState {
     this.bootstrapped = false,
     this.loading = false,
     this.error,
+    this.unreadNotifications,
   });
 
   final AuthUser? user;
@@ -19,6 +20,12 @@ class AuthState {
   final bool bootstrapped;
   final bool loading;
   final String? error;
+  // Phase 4.20 — seeded by /auth/login, /auth/2fa/challenge, /auth/me.
+  // The notifications bell reads this on mount instead of issuing its
+  // own boot-time GET /notifications/unread-count. Stays null when
+  // the auth payload doesn't include it (older backends, refreshed
+  // session via legacy /refresh — bell falls back to its 45s poll).
+  final int? unreadNotifications;
 
   bool get isLoggedIn => user != null;
 
@@ -33,6 +40,7 @@ class AuthState {
     bool? bootstrapped,
     bool? loading,
     String? error,
+    int? unreadNotifications,
     bool clearUser = false,
   }) {
     return AuthState(
@@ -41,6 +49,7 @@ class AuthState {
       bootstrapped: bootstrapped ?? this.bootstrapped,
       loading: loading ?? this.loading,
       error: error,
+      unreadNotifications: unreadNotifications ?? this.unreadNotifications,
     );
   }
 }
@@ -76,6 +85,7 @@ class AuthController extends StateNotifier<AuthState> {
         user: session.user,
         permissions: session.permissions,
         bootstrapped: true,
+        unreadNotifications: session.unreadNotifications,
       );
     } catch (_) {
       await _repo.logout();
@@ -103,6 +113,7 @@ class AuthController extends StateNotifier<AuthState> {
         user: session.user,
         permissions: session.permissions,
         bootstrapped: true,
+        unreadNotifications: session.unreadNotifications,
       );
       return LoginOutcome.success();
     } on ApiException catch (e) {
@@ -130,6 +141,7 @@ class AuthController extends StateNotifier<AuthState> {
         user: session.user,
         permissions: session.permissions,
         bootstrapped: true,
+        unreadNotifications: session.unreadNotifications,
       );
       return true;
     } on ApiException catch (e) {
@@ -151,6 +163,7 @@ class AuthController extends StateNotifier<AuthState> {
         user: session.user,
         permissions: session.permissions,
         bootstrapped: true,
+        unreadNotifications: session.unreadNotifications,
       );
     } catch (_) { /* leave state intact on transient failure */ }
   }

@@ -82,6 +82,27 @@ describe('GET /api/auth/me', () => {
     expect(Array.isArray(res.body.permissions)).toBe(true);
     expect(res.body.permissions.length).toBeGreaterThan(0);
   });
+
+  it('includes notifications.unread for the topbar bell seed (Phase 4.20)', async () => {
+    const res = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${accessToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.notifications).toBeDefined();
+    expect(typeof res.body.notifications.unread).toBe('number');
+    expect(res.body.notifications.unread).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('POST /api/auth/login (Phase 4.20 bell seed)', () => {
+  it('login response includes notifications.unread', async () => {
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ username: SEED_USERNAME, password: SEED_PASSWORD });
+    expect(res.status).toBe(200);
+    expect(res.body.notifications).toBeDefined();
+    expect(typeof res.body.notifications.unread).toBe('number');
+  });
 });
 
 describe('GET /api/permissions', () => {
