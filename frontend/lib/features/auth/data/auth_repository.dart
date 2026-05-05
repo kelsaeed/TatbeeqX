@@ -7,6 +7,8 @@ class AuthSession {
     required this.permissions,
     this.unreadNotifications,
     this.companies,
+    this.menusJson,
+    this.sidebarPagesJson,
   });
 
   final AuthUser user;
@@ -21,6 +23,13 @@ class AuthSession {
   // field (older backend), in which case the switcher falls back to a
   // GET /companies on its own.
   final List<Map<String, dynamic>>? companies;
+  // Phase 4.20 — `{ modules, tree }` exactly as /api/menus returns.
+  // Fed to MenuController.seedFromAuth so the sidebar paints without
+  // its own GET.
+  final Map<String, dynamic>? menusJson;
+  // Phase 4.20 — page-row list as /api/pages/sidebar returns. Merged
+  // with the menu tree by MenuController.
+  final List<Map<String, dynamic>>? sidebarPagesJson;
 }
 
 // Phase 4.16 follow-up — login can return either a full session or
@@ -113,11 +122,19 @@ class AuthRepository {
     final companies = res.containsKey('companies') && res['companies'] is List
         ? (res['companies'] as List).cast<Map>().map((m) => m.cast<String, dynamic>()).toList()
         : null;
+    final menusJson = res['menus'] is Map
+        ? (res['menus'] as Map).cast<String, dynamic>()
+        : null;
+    final sidebarPagesJson = res['sidebarPages'] is List
+        ? (res['sidebarPages'] as List).cast<Map>().map((m) => m.cast<String, dynamic>()).toList()
+        : null;
     return AuthSession(
       user: user,
       permissions: perms,
       unreadNotifications: unread,
       companies: companies,
+      menusJson: menusJson,
+      sidebarPagesJson: sidebarPagesJson,
     );
   }
 }

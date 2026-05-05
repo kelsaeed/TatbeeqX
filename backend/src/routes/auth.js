@@ -10,6 +10,8 @@ import {
 } from '../lib/totp.js';
 import { logSystem } from '../lib/system_log.js';
 import { loadUserPermissions } from '../lib/permissions.js';
+import { buildMenuPayload } from '../lib/menu_payload.js';
+import { loadSidebarPages } from '../lib/sidebar_pages.js';
 import { asyncHandler, badRequest, notFound, unauthorized } from '../lib/http.js';
 import { parseId } from '../middleware/validate.js';
 import { requireFields } from '../middleware/validate.js';
@@ -152,6 +154,12 @@ router.post(
       prisma.notification.count({ where: { userId: user.id, readAt: null } }),
       prisma.company.findMany({ orderBy: { id: 'asc' }, select: { id: true, name: true } }),
     ]);
+    // Menus + sidebar pages depend on the permission set, so they have
+    // to follow the first Promise.all. Still parallel with each other.
+    const [menus, sidebarPages] = await Promise.all([
+      buildMenuPayload(permissions),
+      loadSidebarPages(user, permissions),
+    ]);
     const canSeeCompanies = user.isSuperAdmin || permissions.has('companies.view');
 
     await writeAudit({
@@ -186,6 +194,8 @@ router.post(
       permissions: Array.from(permissions),
       notifications: { unread: unreadNotifications },
       companies: canSeeCompanies ? companies : [],
+      menus,
+      sidebarPages,
     });
   }),
 );
@@ -294,17 +304,19 @@ router.get(
   '/me',
   authenticate,
   asyncHandler(async (req, res) => {
-    // Phase 4.20 — fetch user + unread + companies in parallel so the
-    // bell badge AND the topbar company switcher are seeded straight
-    // from the bootstrap call. Same payload shape as /auth/login and
-    // /auth/2fa/challenge.
-    const [user, unreadNotifications, companies] = await Promise.all([
+    // Phase 4.20 — fetch user + unread + companies + menus + sidebar
+    // pages in parallel so the bell badge, topbar company switcher,
+    // AND sidebar are seeded straight from the bootstrap call. Same
+    // payload shape as /auth/login and /auth/2fa/challenge.
+    const [user, unreadNotifications, companies, menus, sidebarPages] = await Promise.all([
       prisma.user.findUnique({
         where: { id: req.user.id },
         include: { company: true, branch: true },
       }),
       prisma.notification.count({ where: { userId: req.user.id, readAt: null } }),
       prisma.company.findMany({ orderBy: { id: 'asc' }, select: { id: true, name: true } }),
+      buildMenuPayload(req.permissions),
+      loadSidebarPages(req.user, req.permissions),
     ]);
     const canSeeCompanies = req.user.isSuperAdmin || req.permissions.has('companies.view');
     res.json({
@@ -327,6 +339,8 @@ router.get(
       permissions: Array.from(req.permissions),
       notifications: { unread: unreadNotifications },
       companies: canSeeCompanies ? companies : [],
+      menus,
+      sidebarPages,
     });
   }),
 );
@@ -501,6 +515,10 @@ router.post(
       prisma.notification.count({ where: { userId: user.id, readAt: null } }),
       prisma.company.findMany({ orderBy: { id: 'asc' }, select: { id: true, name: true } }),
     ]);
+    const [menus, sidebarPages] = await Promise.all([
+      buildMenuPayload(permissions),
+      loadSidebarPages(user, permissions),
+    ]);
     const canSeeCompanies = user.isSuperAdmin || permissions.has('companies.view');
     await writeAudit({ req: { ...req, user }, action: 'login', entity: 'User', entityId: user.id, metadata: { with2FA: true } });
     await recordLoginEvent({ userId: user.id, username: user.username, event: 'login', success: true, req });
@@ -517,6 +535,8 @@ router.post(
       permissions: Array.from(permissions),
       notifications: { unread: unreadNotifications },
       companies: canSeeCompanies ? companies : [],
+      menus,
+      sidebarPages,
     });
   }),
 );

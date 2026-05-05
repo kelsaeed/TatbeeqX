@@ -29,7 +29,17 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => ref.read(menuControllerProvider.notifier).load());
+    // Phase 4.20 — seed the sidebar from the auth payload when the
+    // backend bundled it (current path). Falls back to a fresh
+    // /menus + /pages/sidebar fetch only on legacy backends or when
+    // the seed is missing for some other reason.
+    final authState = ref.read(authControllerProvider);
+    final menusSeed = authState.menusJson;
+    if (menusSeed != null) {
+      ref.read(menuControllerProvider.notifier).seedFromAuth(menusSeed, authState.sidebarPagesJson);
+    } else {
+      Future.microtask(() => ref.read(menuControllerProvider.notifier).load());
+    }
   }
 
   @override

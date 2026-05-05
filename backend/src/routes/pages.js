@@ -7,19 +7,13 @@ import { parseId, requireFields } from '../middleware/validate.js';
 import { writeAudit } from '../lib/audit.js';
 import { hasPermission } from '../lib/permissions.js';
 import { sanitizeHtmlBlock } from '../lib/html_sanitize.js';
+import { parsePage } from '../lib/page_parse.js';
+import { loadSidebarPages } from '../lib/sidebar_pages.js';
 
 const router = Router();
 
 const ROUTE_RE = /^\/[a-zA-Z0-9_\-/]{0,120}$/;
 const CODE_RE = /^[a-z][a-z0-9_]{0,62}$/;
-
-function parsePage(p) {
-  let data = {};
-  let titles = {};
-  try { data = p.data ? JSON.parse(p.data) : {}; } catch { data = {}; }
-  try { titles = p.titles ? JSON.parse(p.titles) : {}; } catch { titles = {}; }
-  return { ...p, data, titles };
-}
 
 function parseBlock(b) {
   let config = {};
@@ -71,17 +65,8 @@ router.get(
 router.get(
   '/sidebar',
   asyncHandler(async (req, res) => {
-    const pages = await prisma.page.findMany({
-      where: { isActive: true, showInSidebar: true },
-      orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
-    });
-    const perms = req.permissions ?? new Set();
-    const visible = pages.filter((p) => {
-      if (req.user.isSuperAdmin) return true;
-      if (!p.permissionCode) return true;
-      return hasPermission(perms, p.permissionCode);
-    });
-    res.json({ items: visible.map(parsePage) });
+    const items = await loadSidebarPages(req.user, req.permissions ?? new Set());
+    res.json({ items });
   }),
 );
 

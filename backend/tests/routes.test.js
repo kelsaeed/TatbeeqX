@@ -114,6 +114,19 @@ describe('GET /api/auth/me', () => {
     expect(res.body.notifications.unread).toBeGreaterThanOrEqual(0);
   });
 
+  it('includes menus + sidebarPages seeds for the sidebar (Phase 4.20)', async () => {
+    const res = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${accessToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.menus).toBeDefined();
+    expect(Array.isArray(res.body.menus.tree)).toBe(true);
+    expect(Array.isArray(res.body.menus.modules)).toBe(true);
+    // Super admin sees the full tree, so we expect at least a few entries.
+    expect(res.body.menus.tree.length).toBeGreaterThan(0);
+    expect(Array.isArray(res.body.sidebarPages)).toBe(true);
+  });
+
   it('includes companies seed for the topbar switcher (Phase 4.20)', async () => {
     const res = await request(app)
       .get('/api/auth/me')

@@ -14,6 +14,8 @@ class AuthState {
     this.error,
     this.unreadNotifications,
     this.companies,
+    this.menusJson,
+    this.sidebarPagesJson,
   });
 
   final AuthUser? user;
@@ -30,6 +32,12 @@ class AuthState {
   // Phase 4.20 — slim {id, name} company list for the topbar switcher.
   // Same null vs empty-list semantics as unreadNotifications.
   final List<Map<String, dynamic>>? companies;
+  // Phase 4.20 — sidebar seeds. menusJson is `{ modules, tree }` from
+  // /api/menus; sidebarPagesJson mirrors /api/pages/sidebar's items.
+  // MenuController.seedFromAuth consumes both. Null = legacy backend;
+  // shell falls back to MenuController.load().
+  final Map<String, dynamic>? menusJson;
+  final List<Map<String, dynamic>>? sidebarPagesJson;
 
   bool get isLoggedIn => user != null;
 
@@ -46,6 +54,8 @@ class AuthState {
     String? error,
     int? unreadNotifications,
     List<Map<String, dynamic>>? companies,
+    Map<String, dynamic>? menusJson,
+    List<Map<String, dynamic>>? sidebarPagesJson,
     bool clearUser = false,
   }) {
     return AuthState(
@@ -56,6 +66,8 @@ class AuthState {
       error: error,
       unreadNotifications: unreadNotifications ?? this.unreadNotifications,
       companies: companies ?? this.companies,
+      menusJson: menusJson ?? this.menusJson,
+      sidebarPagesJson: sidebarPagesJson ?? this.sidebarPagesJson,
     );
   }
 }
@@ -93,6 +105,8 @@ class AuthController extends StateNotifier<AuthState> {
         bootstrapped: true,
         unreadNotifications: session.unreadNotifications,
         companies: session.companies,
+        menusJson: session.menusJson,
+        sidebarPagesJson: session.sidebarPagesJson,
       );
     } catch (_) {
       await _repo.logout();
@@ -122,6 +136,8 @@ class AuthController extends StateNotifier<AuthState> {
         bootstrapped: true,
         unreadNotifications: session.unreadNotifications,
         companies: session.companies,
+        menusJson: session.menusJson,
+        sidebarPagesJson: session.sidebarPagesJson,
       );
       return LoginOutcome.success();
     } on ApiException catch (e) {
@@ -151,6 +167,8 @@ class AuthController extends StateNotifier<AuthState> {
         bootstrapped: true,
         unreadNotifications: session.unreadNotifications,
         companies: session.companies,
+        menusJson: session.menusJson,
+        sidebarPagesJson: session.sidebarPagesJson,
       );
       return true;
     } on ApiException catch (e) {
@@ -174,6 +192,8 @@ class AuthController extends StateNotifier<AuthState> {
         bootstrapped: true,
         unreadNotifications: session.unreadNotifications,
         companies: session.companies,
+        menusJson: session.menusJson,
+        sidebarPagesJson: session.sidebarPagesJson,
       );
     } catch (_) { /* leave state intact on transient failure */ }
   }

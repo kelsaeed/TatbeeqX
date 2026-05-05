@@ -65,28 +65,14 @@ class MenuController extends StateNotifier<MenuState> {
     state = MenuState(loading: true);
     try {
       final res = await _api.getJson('/menus');
-      final tree = (res['tree'] as List? ?? const [])
-          .map((e) => MenuItemNode.fromJson(e as Map<String, dynamic>))
-          .toList();
+      final tree = _parseMenuTree(res['tree']);
 
       // Phase 4.1 — merge user-defined pages from /pages/sidebar
       // Items render via PageRenderer at /p/:code; we ignore the page's
       // free-form route for sidebar purposes to avoid go_router collisions.
       try {
         final pagesRes = await _api.getJson('/pages/sidebar');
-        final pages = (pagesRes['items'] as List? ?? const [])
-            .cast<Map<String, dynamic>>()
-            .where((p) => (p['code'] as String?)?.isNotEmpty ?? false)
-            .map((p) => MenuItemNode(
-                  id: -1 * (p['id'] as int),
-                  code: 'page.${p['code']}',
-                  label: (p['title'] as String?) ?? (p['code'] as String? ?? 'Page'),
-                  icon: p['icon'] as String?,
-                  route: '/p/${p['code']}',
-                  children: const [],
-                ))
-            .toList();
-        tree.addAll(pages);
+        tree.addAll(_parseSidebarPages(pagesRes['items']));
       } catch (_) {
         // pages module might not be visible to this user — silently skip
       }
@@ -96,6 +82,36 @@ class MenuController extends StateNotifier<MenuState> {
       state = MenuState(error: e.toString());
     }
   }
+
+  // Phase 4.20 — apply menu + sidebar-pages payload that came in via
+  // /auth/me / /auth/login. Same merge logic as load() but no HTTP.
+  // Caller hands us the raw JSON the auth response already parsed.
+  void seedFromAuth(Map<String, dynamic> menusJson, List<Map<String, dynamic>>? sidebarPagesJson) {
+    final tree = _parseMenuTree(menusJson['tree']);
+    if (sidebarPagesJson != null) {
+      tree.addAll(_parseSidebarPages(sidebarPagesJson));
+    }
+    state = MenuState(items: tree);
+  }
+
+  static List<MenuItemNode> _parseMenuTree(dynamic raw) =>
+      (raw as List? ?? const [])
+          .map((e) => MenuItemNode.fromJson(e as Map<String, dynamic>))
+          .toList();
+
+  static List<MenuItemNode> _parseSidebarPages(dynamic raw) =>
+      (raw as List? ?? const [])
+          .cast<Map<String, dynamic>>()
+          .where((p) => (p['code'] as String?)?.isNotEmpty ?? false)
+          .map((p) => MenuItemNode(
+                id: -1 * (p['id'] as int),
+                code: 'page.${p['code']}',
+                label: (p['title'] as String?) ?? (p['code'] as String? ?? 'Page'),
+                icon: p['icon'] as String?,
+                route: '/p/${p['code']}',
+                children: const [],
+              ))
+          .toList();
 }
 
 final menuControllerProvider = StateNotifierProvider<MenuController, MenuState>((ref) {
