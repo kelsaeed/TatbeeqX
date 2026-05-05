@@ -303,11 +303,14 @@ const HANDLERS = {
     // than a failure, so workflows compose cleanly on dev boxes that
     // don't have SMTP wired. Operators can flip BAIL_ON_NO_SMTP=1 to
     // make the action fail loudly in CI/prod.
-    if (!isConfigured() && process.env.BAIL_ON_NO_SMTP !== '1') {
+    if (!isConfigured()) {
+      if (process.env.BAIL_ON_NO_SMTP === '1') {
+        throw new Error('send_email: SMTP not configured (BAIL_ON_NO_SMTP=1)');
+      }
       return { ok: false, stubbed: true, reason: 'smtp not configured' };
     }
     const result = await sendEmail({ to, subject, text, html, from });
-    if (!result.ok && !result.stubbed) throw new Error(`send_email: ${result.reason}`);
+    if (!result.ok) throw new Error(`send_email: ${result.reason}`);
     return result;
   },
 };

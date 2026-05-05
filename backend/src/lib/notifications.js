@@ -63,10 +63,22 @@ export async function notifyRole(roleCode, payload) {
       where: { isActive: true, userRoles: { some: { role: { code: roleCode } } } },
       select: { id: true },
     });
+    let delivered = 0;
+    const failures = [];
     for (const u of users) {
-      await notify(u.id, payload).catch(() => {});
+      try {
+        await notify(u.id, payload);
+        delivered++;
+      } catch (err) {
+        failures.push({ userId: u.id, error: String(err?.message || err) });
+      }
     }
-    return users.length;
+    if (failures.length > 0) {
+      await logSystem('warn', 'notifications', 'notifyRole partial failure', {
+        roleCode, attempted: users.length, delivered, failures: failures.slice(0, 20),
+      }).catch(() => {});
+    }
+    return delivered;
   } catch (err) {
     await logSystem('warn', 'notifications', 'notifyRole failed', {
       roleCode, error: String(err?.message || err),
