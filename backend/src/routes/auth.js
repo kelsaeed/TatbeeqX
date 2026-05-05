@@ -383,11 +383,26 @@ router.get(
 
 const TWOFA_RECOVERY_PLACEHOLDER_HASH = crypto.createHash('sha256').update('placeholder').digest('hex');
 
+// Per-user limit: prevents the "many IPs, one user" brute attack
+// against TOTP. The challenge token is short-lived but a real attacker
+// can mint fresh tokens by re-running the password phase. Falling back
+// to IP keeps the limiter effective when the body is missing or the
+// token can't be verified (the route handler will reject those anyway).
 const challengeLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: Number(process.env.AUTH_2FA_MAX) || 10,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => {
+    try {
+      const t = req.body?.challengeToken;
+      if (typeof t === 'string' && t.length > 0) {
+        const payload = verifyChallengeToken(t);
+        if (payload?.sub) return `2fa:user:${payload.sub}`;
+      }
+    } catch { /* fall through to IP */ }
+    return `2fa:ip:${req.ip}`;
+  },
   message: { error: { message: 'Too many 2FA attempts. Try again in a few minutes.' } },
 });
 
@@ -700,10 +715,24 @@ router.post(
     // below, and any miss gets the same response. The 200 below is
     // unconditional even when SMTP errored, to keep enumeration off
     // the table.
-    const ack = () => res.json({
-      ok: true,
-      message: 'If that account exists and has email configured, a reset link has been sent.',
-    });
+    //
+    // Anti-enumeration timing: pad every response to a fixed minimum
+    // floor so an observer can't distinguish "user exists" from "user
+    // missing" by latency. The DB writes + audit on the real-user path
+    // run faster than the floor; the empty-identifier and missing-user
+    // paths are essentially instant. Without the floor, the *missing*
+    // path was paradoxically the slowest (80 ms sleep) — the opposite
+    // of what we want.
+    const startedAt = Date.now();
+    const minLatencyMs = Number(process.env.AUTH_FORGOT_PASSWORD_MIN_MS) || 200;
+    const ack = async () => {
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < minLatencyMs) await new Promise((r) => setTimeout(r, minLatencyMs - elapsed));
+      return res.json({
+        ok: true,
+        message: 'If that account exists and has email configured, a reset link has been sent.',
+      });
+    };
 
     if (!identifier) return ack();
 
@@ -713,13 +742,7 @@ router.post(
         OR: [{ username: identifier }, { email: identifier }],
       },
     });
-    if (!user || !user.email) {
-      // Soak constant-time-ish so a missing row doesn't measurably
-      // beat a present row in latency. 80ms covers the email-send
-      // path on a fast SMTP relay.
-      await new Promise((r) => setTimeout(r, 80));
-      return ack();
-    }
+    if (!user || !user.email) return ack();
 
     const token = crypto.randomBytes(32).toString('hex');
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');

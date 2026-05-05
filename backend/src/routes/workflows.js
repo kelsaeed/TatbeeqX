@@ -7,6 +7,7 @@
 
 import crypto from 'node:crypto';
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import { prisma } from '../lib/prisma.js';
 import { authenticate } from '../middleware/auth.js';
 import { requirePermission } from '../middleware/permission.js';
@@ -19,6 +20,19 @@ import {
 } from '../lib/workflow_engine.js';
 
 const router = Router();
+
+// Manual workflow runs can be expensive (DB writes, outbound webhooks,
+// SMTP sends). Rate-limit per authenticated user (falls back to IP if
+// somehow unauthenticated reaches here, which it shouldn't past
+// `router.use(authenticate)`).
+const workflowRunLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.WORKFLOW_RUN_MAX) || 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `wfrun:${req.user?.id ?? req.ip}`,
+  message: { error: { message: 'Too many workflow runs. Try again in a few minutes.' } },
+});
 
 const SCHEDULE_FREQUENCIES = ['every_minute', 'every_5_minutes', 'hourly', 'daily', 'weekly', 'monthly', 'cron'];
 
@@ -300,6 +314,7 @@ router.delete(
 
 router.post(
   '/:id/run',
+  workflowRunLimiter,
   requirePermission('workflows.run'),
   asyncHandler(async (req, res) => {
     const id = parseId(req.params.id);
@@ -317,6 +332,7 @@ router.post(
 // not). Same permission gate as the by-id route.
 router.post(
   '/by-code/:code/run',
+  workflowRunLimiter,
   requirePermission('workflows.run'),
   asyncHandler(async (req, res) => {
     const code = String(req.params.code || '');
