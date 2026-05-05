@@ -5,27 +5,9 @@ import { requireSuperAdmin } from '../middleware/permission.js';
 import { asyncHandler, badRequest, notFound } from '../lib/http.js';
 import { parseId, requireFields } from '../middleware/validate.js';
 import { writeAudit } from '../lib/audit.js';
+import { parseTheme } from '../lib/theme_parse.js';
 
 const router = Router();
-
-function parseTheme(t) {
-  let data = {};
-  try {
-    data = t.data ? JSON.parse(t.data) : {};
-  } catch {
-    data = {};
-  }
-  return {
-    id: t.id,
-    companyId: t.companyId,
-    name: t.name,
-    isDefault: t.isDefault,
-    isActive: t.isActive,
-    data,
-    createdAt: t.createdAt,
-    updatedAt: t.updatedAt,
-  };
-}
 
 router.get(
   '/active',

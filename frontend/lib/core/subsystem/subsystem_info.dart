@@ -15,6 +15,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../boot/boot_provider.dart';
 import '../providers.dart';
 
 class SubsystemBranding {
@@ -77,18 +78,20 @@ class SubsystemInfo {
   static const empty = SubsystemInfo();
 }
 
-/// Loads the subsystem info exactly once at app start. The endpoint is
-/// public, so this fires before any auth state — making the result
-/// usable for branding the login screen.
+/// Subsystem info. Phase 4.20 — derived from `bootProvider`, which
+/// fetches /api/boot once at app start (bundles subsystem + active
+/// theme into one round-trip). Falls back to /api/subsystem/info only
+/// when the bundle itself failed (older backend or transient error),
+/// so an upgraded backend serves both reads from one HTTP hit.
 final subsystemInfoProvider = FutureProvider<SubsystemInfo>((ref) async {
+  final boot = await ref.watch(bootProvider.future);
+  if (!boot.failed) return boot.subsystem;
+  // Bundle failed — try the legacy endpoint as a last resort.
   final api = ref.watch(apiClientProvider);
   try {
     final res = await api.getJson('/subsystem/info');
     return SubsystemInfo.fromJson(res);
   } catch (_) {
-    // If the endpoint isn't reachable yet (server starting), default to
-    // unlocked. The redirect logic in app_router treats AsyncValue.loading
-    // as "no lockdown", so the user never gets stuck on a black screen.
     return SubsystemInfo.empty;
   }
 });

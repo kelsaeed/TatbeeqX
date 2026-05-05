@@ -54,6 +54,23 @@ class ThemeController extends StateNotifier<ThemeState> {
     }
   }
 
+  // Phase 4.20 — apply a theme that came from the /api/boot bundle
+  // without issuing a separate HTTP call. Same shape as the parsed
+  // /themes/active response: { id, data: {...}, ... }.
+  void applyBootTheme(Map<String, dynamic>? themeJson) {
+    if (themeJson == null) {
+      state = ThemeState(settings: const ThemeSettings());
+      return;
+    }
+    final data = (themeJson['data'] is Map)
+        ? Map<String, dynamic>.from(themeJson['data'] as Map)
+        : <String, dynamic>{};
+    state = ThemeState(
+      settings: ThemeSettings.fromJson(data),
+      activeThemeId: themeJson['id'] as int?,
+    );
+  }
+
   void applyLocal(ThemeSettings next) {
     state = state.copyWith(settings: next);
   }

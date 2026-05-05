@@ -41,6 +41,27 @@ describe('GET /api/health', () => {
   });
 });
 
+describe('GET /api/boot (Phase 4.20 pre-auth bundle)', () => {
+  it('is publicly reachable without auth', async () => {
+    const res = await request(app).get('/api/boot');
+    expect(res.status).toBe(200);
+  });
+
+  it('returns subsystem + theme in one payload', async () => {
+    const res = await request(app).get('/api/boot');
+    expect(res.status).toBe(200);
+    expect(res.body.subsystem).toBeDefined();
+    // subsystem-info shape sanity check (lockdown is always present).
+    expect(typeof res.body.subsystem.lockdown).toBe('boolean');
+    expect(Array.isArray(res.body.subsystem.modules)).toBe(true);
+    // theme is either a parsed Theme row or null.
+    if (res.body.theme !== null) {
+      expect(typeof res.body.theme.id).toBe('number');
+      expect(typeof res.body.theme.data).toBe('object');
+    }
+  });
+});
+
 describe('POST /api/auth/login', () => {
   it('rejects bad credentials with 401', async () => {
     const res = await request(app)

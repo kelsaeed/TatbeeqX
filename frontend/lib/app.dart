@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/boot/boot_provider.dart';
 import 'core/i18n/locale_controller.dart';
 import 'core/subsystem/subsystem_info.dart';
 import 'core/theme/theme_controller.dart';
@@ -23,20 +24,21 @@ class _TatbeeqXAppState extends ConsumerState<TatbeeqXApp> {
   void initState() {
     super.initState();
     Future.microtask(() async {
-      // Phase 4.12 — kick the subsystem-info fetch early so it's
-      // resolved by the time the router does its first redirect.
-      ref.read(subsystemInfoProvider);
-      // Phase 4.16 follow-up — theme + auth bootstrap don't depend on
-      // each other; run them in parallel to remove a full RTT from
-      // cold-boot. setup.refresh() is NOT triggered here — the
-      // ref.listen below catches the auth transition (loading →
-      // authenticated) and fires setup.refresh once. Calling here too
-      // produced a duplicate /api/business/setup hit on every cold
-      // boot with a valid token.
-      await Future.wait([
-        ref.read(themeControllerProvider.notifier).loadActive(),
-        ref.read(authControllerProvider.notifier).bootstrap(),
-      ]);
+      // Phase 4.20 — single pre-auth bundle. /api/boot returns
+      // subsystem info + active theme in one round-trip; subsystemInfo
+      // provider derives from the same bootProvider so any consumer
+      // of it gets the same future. Falls back to the legacy
+      // /themes/active call if the bundle itself errored.
+      final boot = await ref.read(bootProvider.future);
+      if (!boot.failed) {
+        ref.read(themeControllerProvider.notifier).applyBootTheme(boot.themeJson);
+      } else {
+        // Legacy path — the bundle failed, fetch the theme directly.
+        // setup.refresh() is NOT triggered here — the ref.listen below
+        // catches the auth transition and fires it once.
+        await ref.read(themeControllerProvider.notifier).loadActive();
+      }
+      await ref.read(authControllerProvider.notifier).bootstrap();
     });
   }
 

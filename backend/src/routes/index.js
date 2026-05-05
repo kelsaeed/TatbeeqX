@@ -32,6 +32,7 @@ import workflows from './workflows.js';               // MOD: workflows
 import notifications from './notifications.js';       // MOD: notifications
 import admin from './admin.js';
 import subsystem from './subsystem.js';
+import boot from './boot.js';
 
 const router = Router();
 
@@ -39,6 +40,9 @@ router.get('/health', (_req, res) => res.json({ ok: true, time: new Date().toISO
 
 // Phase 4.12 — public, no auth. See routes/subsystem.js for why.
 router.use('/subsystem', subsystem);
+// Phase 4.20 — public, no auth. Bundles /subsystem/info + /themes/active
+// into one response for cold-boot. See routes/boot.js.
+router.use('/boot', boot);
 
 router.use('/auth', auth);
 router.use('/users', users);
