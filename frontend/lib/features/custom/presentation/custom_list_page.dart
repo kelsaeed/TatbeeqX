@@ -452,6 +452,7 @@ class _ImportSummary extends StatelessWidget {
     final summary = (result['summary'] as Map?)?.cast<String, dynamic>() ?? const {};
     final dryRun = result['dryRun'] == true;
     final errors = (result['errors'] as List? ?? const []).cast<Map>().cast<Map<String, dynamic>>();
+    final buckets = (result['errorBuckets'] as List? ?? const []).cast<Map>().cast<Map<String, dynamic>>();
 
     final created = summary['created'] ?? 0;
     final skipped = summary['skipped'] ?? 0;
@@ -482,6 +483,21 @@ class _ImportSummary extends StatelessWidget {
               Text(t.importSummary(total, created, skipped, errCount)),
             ],
           ),
+          // Error-type buckets surface every distinct failure regardless
+          // of the per-row truncation cap. Top 10 by count.
+          if (buckets.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 80),
+              child: ListView(
+                shrinkWrap: true,
+                children: buckets.take(10).map((b) => Text(
+                  '${b['count']}× ${b['message']}',
+                  style: TextStyle(fontSize: 11, color: cs.error, fontWeight: FontWeight.w500),
+                )).toList(),
+              ),
+            ),
+          ],
           if (errors.isNotEmpty) ...[
             const SizedBox(height: 8),
             ConstrainedBox(

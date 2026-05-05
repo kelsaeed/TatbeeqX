@@ -71,11 +71,27 @@ router.get(
     res.setHeader('Content-Type', 'application/octet-stream');
     res.setHeader('Content-Length', String(size));
     res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
-    fs.createReadStream(file).pipe(res);
-
-    // Audit AFTER the headers go out — failures during streaming are
-    // logged via system_log only.
-    logSystem('info', 'backup', `Backup download: ${name}`, { actor, size }).catch(() => {});
+    const stream = fs.createReadStream(file);
+    // Log started + completed/failed separately so a failed mid-stream
+    // download isn't recorded as a successful one. `res.finish` fires
+    // once the response is fully flushed; `res.close` fires whether or
+    // not the response was finished, so we check `writableFinished` to
+    // distinguish a clean end from a client disconnect.
+    logSystem('info', 'backup', `Backup download started: ${name}`, { actor, size }).catch(() => {});
+    res.once('finish', () => {
+      logSystem('info', 'backup', `Backup download complete: ${name}`, { actor, size }).catch(() => {});
+    });
+    res.once('close', () => {
+      if (!res.writableFinished) {
+        logSystem('warn', 'backup', `Backup download interrupted: ${name}`, { actor, size }).catch(() => {});
+      }
+    });
+    stream.once('error', (err) => {
+      logSystem('error', 'backup', `Backup download stream error: ${name}`, {
+        actor, size, error: String(err?.message || err),
+      }).catch(() => {});
+    });
+    stream.pipe(res);
   }),
 );
 

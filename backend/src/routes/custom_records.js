@@ -122,6 +122,13 @@ router.post(
     const summary = { total: dataRows.length, created: 0, skipped: 0, errors: 0 };
     const errors = [];
     const MAX_ERRORS = 100;
+    // Bucket every error by message so even a 10k-row import with one
+    // recurring root cause surfaces every distinct failure type, not
+    // just the first 100 occurrences. Each bucket stores up to 3
+    // example line numbers — enough to spot-check without bloating
+    // the response.
+    const buckets = new Map();
+    const BUCKET_EXAMPLES = 3;
 
     for (let r = 0; r < dataRows.length; r++) {
       const cells = dataRows[r];
@@ -166,21 +173,30 @@ router.post(
         summary.created++;
       } catch (err) {
         summary.errors++;
+        const msg = String(err?.message || err);
         if (errors.length < MAX_ERRORS) {
-          errors.push({ line: lineNo, message: String(err?.message || err) });
+          errors.push({ line: lineNo, message: msg });
         } else if (errors.length === MAX_ERRORS) {
-          errors.push({ line: -1, message: `Truncated — more than ${MAX_ERRORS} errors.` });
+          errors.push({ line: -1, message: `Truncated — more than ${MAX_ERRORS} errors. See errorBuckets for the full distribution.` });
         }
+        const bucket = buckets.get(msg) ?? { count: 0, exampleLines: [] };
+        bucket.count++;
+        if (bucket.exampleLines.length < BUCKET_EXAMPLES) bucket.exampleLines.push(lineNo);
+        buckets.set(msg, bucket);
       }
     }
+
+    const errorBuckets = Array.from(buckets.entries())
+      .sort((a, b) => b[1].count - a[1].count)
+      .map(([message, b]) => ({ message, count: b.count, exampleLines: b.exampleLines }));
 
     if (dryRun !== true) {
       await writeAudit({
         req, action: 'import', entity: entity.code,
-        metadata: { ...summary, format: 'csv' },
+        metadata: { ...summary, format: 'csv', distinctErrors: errorBuckets.length },
       });
     }
-    res.json({ ok: summary.errors === 0, dryRun: dryRun === true, summary, errors });
+    res.json({ ok: summary.errors === 0, dryRun: dryRun === true, summary, errors, errorBuckets });
   }),
 );
 
