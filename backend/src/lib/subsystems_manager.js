@@ -45,6 +45,28 @@ function logPathFor(id) {
   return path.join(LOGS_DIR, `${id}.log`);
 }
 
+const MAX_LOG_BYTES = 5 * 1024 * 1024;
+
+function rotateLogIfTooBig(filePath) {
+  if (!fs.existsSync(filePath)) return;
+  let size;
+  try {
+    size = fs.statSync(filePath).size;
+  } catch {
+    return;
+  }
+  if (size < MAX_LOG_BYTES) return;
+  const archive = `${filePath}.1`;
+  try {
+    if (fs.existsSync(archive)) fs.rmSync(archive, { force: true });
+    fs.renameSync(filePath, archive);
+  } catch {
+    // Rename can fail if another tool has the archive open; the
+    // append below will still succeed and the file just keeps
+    // growing until next try. Not worth crashing over.
+  }
+}
+
 function readRegistry() {
   ensureRegistryDir();
   if (!fs.existsSync(REGISTRY_FILE)) return { items: [] };
@@ -156,6 +178,13 @@ function computeStatus(item) {
   const exeAlive = isPidAlive(item.exePid);
   if (backendAlive && exeAlive) return 'running';
   if (backendAlive || exeAlive) return 'partial';
+  // Phase 4.20 (Phase 2b cleanup) — flag rows whose bundle folder
+  // disappeared (user deleted or moved it after registering). UI
+  // disables Start/Reassign for these — Remove is the only sensible
+  // action. Only check existence when we know the process isn't
+  // running; an alive PID means the folder *was* there at spawn time
+  // and Windows would have locked the cwd anyway.
+  if (!fs.existsSync(item.bundleDir)) return 'missing';
   return 'stopped';
 }
 
@@ -280,6 +309,12 @@ export async function startSubsystem(id) {
   // history across restarts; rotation is a future concern.
   ensureLogsDir();
   const logPath = logPathFor(item.id);
+  // Phase 4.20 (Phase 2b cleanup) — single-level rotation. If the
+  // log has grown past MAX_LOG_BYTES, rename to <id>.log.1 (clobber
+  // any existing archive) before the new launch starts. Safe to
+  // rename here because the previous backend is already dead — we
+  // wouldn't be in startSubsystem otherwise.
+  rotateLogIfTooBig(logPath);
   // Stamp a header so it's obvious where each launch starts in the
   // accumulated log.
   const launchHeader = `\n=== launch ${new Date().toISOString()} (port ${item.port}) ===\n`;

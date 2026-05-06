@@ -5,6 +5,8 @@
 // and an "Add bundle" picker. Backed by /api/admin/subsystems and
 // the JSON registry at <APPDATA>/TatbeeqX/subsystems.json.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -29,18 +31,35 @@ class _SubsystemsPageState extends ConsumerState<SubsystemsPage> {
   // matching button can show a spinner without freezing the rest of
   // the list.
   String? _busyId;
+  // Phase 4.20 (Phase 2b cleanup) — quiet poll keeps status fresh
+  // when a subsystem dies/exits outside this UI (user closed the
+  // window with X, OS killed it, etc.). Skipped while a row is
+  // mid-transition so we never race a start/stop call.
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
     Future.microtask(_load);
+    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted || _busyId != null) return;
+      _load(silent: true);
+    });
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final res = await ref.read(apiClientProvider).getJson('/admin/subsystems');
       if (!mounted) return;
@@ -48,13 +67,19 @@ class _SubsystemsPageState extends ConsumerState<SubsystemsPage> {
         _items = ((res['items'] as List?) ?? const []).cast<Map<String, dynamic>>();
         _registryPath = res['registryPath']?.toString();
         _loading = false;
+        if (silent) _error = null;
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _error = e.toString();
-        _loading = false;
-      });
+      // Don't clobber the visible list with an error overlay during
+      // a silent poll — a flaky single tick shouldn't tear the page
+      // down. Surface only on the explicit-load path.
+      if (!silent) {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
     }
   }
 
@@ -187,6 +212,8 @@ class _SubsystemsPageState extends ConsumerState<SubsystemsPage> {
         return Colors.green;
       case 'partial':
         return Colors.orange;
+      case 'missing':
+        return Colors.red;
       default:
         return cs.outline;
     }
@@ -369,6 +396,7 @@ class _RowActions extends StatelessWidget {
       );
     }
     final isRunning = status == 'running' || status == 'partial';
+    final isMissing = status == 'missing';
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -380,9 +408,12 @@ class _RowActions extends StatelessWidget {
           )
         else
           IconButton(
-            tooltip: 'Start',
-            onPressed: onStart,
-            icon: const Icon(Icons.play_circle_outline, color: Colors.green),
+            tooltip: isMissing ? 'Bundle folder is missing' : 'Start',
+            onPressed: isMissing ? null : onStart,
+            icon: Icon(
+              Icons.play_circle_outline,
+              color: isMissing ? null : Colors.green,
+            ),
           ),
         IconButton(
           tooltip: isRunning ? 'Restart' : 'Start the subsystem first',
@@ -395,8 +426,12 @@ class _RowActions extends StatelessWidget {
           icon: const Icon(Icons.terminal),
         ),
         IconButton(
-          tooltip: isRunning ? 'Stop the subsystem first' : 'Reassign port',
-          onPressed: isRunning ? null : onReassign,
+          tooltip: isMissing
+              ? 'Bundle folder is missing'
+              : isRunning
+                  ? 'Stop the subsystem first'
+                  : 'Reassign port',
+          onPressed: (isRunning || isMissing) ? null : onReassign,
           icon: const Icon(Icons.swap_horiz),
         ),
         IconButton(
