@@ -92,6 +92,33 @@ class _SubsystemsPageState extends ConsumerState<SubsystemsPage> {
     }
   }
 
+  Future<void> _restart(Map<String, dynamic> item) async {
+    final id = item['id'] as String;
+    setState(() => _busyId = id);
+    try {
+      await ref.read(apiClientProvider).postJson('/admin/subsystems/$id/restart');
+      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Restart failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busyId = null);
+    }
+  }
+
+  Future<void> _viewLogs(Map<String, dynamic> item) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _LogsDialog(
+        id: item['id'] as String,
+        name: item['name']?.toString() ?? 'Subsystem',
+      ),
+    );
+  }
+
   Future<void> _reassignPort(Map<String, dynamic> item) async {
     final newPort = await showDialog<int>(
       context: context,
@@ -271,6 +298,8 @@ class _SubsystemsPageState extends ConsumerState<SubsystemsPage> {
                         busy: _busyId == s['id'],
                         onStart: () => _start(s),
                         onStop: () => _stop(s),
+                        onRestart: () => _restart(s),
+                        onLogs: () => _viewLogs(s),
                         onRemove: () => _remove(s),
                         onReassign: () => _reassignPort(s),
                       ),
@@ -317,6 +346,8 @@ class _RowActions extends StatelessWidget {
     required this.busy,
     required this.onStart,
     required this.onStop,
+    required this.onRestart,
+    required this.onLogs,
     required this.onRemove,
     required this.onReassign,
   });
@@ -324,6 +355,8 @@ class _RowActions extends StatelessWidget {
   final bool busy;
   final VoidCallback onStart;
   final VoidCallback onStop;
+  final VoidCallback onRestart;
+  final VoidCallback onLogs;
   final VoidCallback onRemove;
   final VoidCallback onReassign;
 
@@ -352,6 +385,16 @@ class _RowActions extends StatelessWidget {
             icon: const Icon(Icons.play_circle_outline, color: Colors.green),
           ),
         IconButton(
+          tooltip: isRunning ? 'Restart' : 'Start the subsystem first',
+          onPressed: isRunning ? onRestart : null,
+          icon: const Icon(Icons.refresh),
+        ),
+        IconButton(
+          tooltip: 'View logs',
+          onPressed: onLogs,
+          icon: const Icon(Icons.terminal),
+        ),
+        IconButton(
           tooltip: isRunning ? 'Stop the subsystem first' : 'Reassign port',
           onPressed: isRunning ? null : onReassign,
           icon: const Icon(Icons.swap_horiz),
@@ -362,6 +405,155 @@ class _RowActions extends StatelessWidget {
           icon: const Icon(Icons.delete_outline),
         ),
       ],
+    );
+  }
+}
+
+class _LogsDialog extends ConsumerStatefulWidget {
+  const _LogsDialog({required this.id, required this.name});
+  final String id;
+  final String name;
+
+  @override
+  ConsumerState<_LogsDialog> createState() => _LogsDialogState();
+}
+
+class _LogsDialogState extends ConsumerState<_LogsDialog> {
+  bool _loading = true;
+  String? _error;
+  List<String> _lines = const [];
+  int _bytes = 0;
+  String? _path;
+  final ScrollController _scroll = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_load);
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final res = await ref.read(apiClientProvider).getJson(
+        '/admin/subsystems/${widget.id}/logs',
+        query: {'lines': '500'},
+      );
+      if (!mounted) return;
+      setState(() {
+        _lines = ((res['lines'] as List?) ?? const []).map((e) => e.toString()).toList();
+        _bytes = (res['bytes'] as num?)?.toInt() ?? 0;
+        _path = res['path']?.toString();
+        _loading = false;
+      });
+      // Auto-scroll to bottom after the frame paints.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scroll.hasClients) {
+          _scroll.jumpTo(_scroll.position.maxScrollExtent);
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  String _humanBytes(int b) {
+    if (b < 1024) return '$b B';
+    if (b < 1024 * 1024) return '${(b / 1024).toStringAsFixed(1)} KB';
+    return '${(b / 1024 / 1024).toStringAsFixed(1)} MB';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Dialog(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 900, maxHeight: 600),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Logs · ${widget.name}',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        ),
+                        if (_path != null)
+                          Text(
+                            '${_path!} · ${_humanBytes(_bytes)}',
+                            style: TextStyle(fontSize: 11, color: cs.outline, fontFamily: 'monospace'),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Refresh',
+                    onPressed: _loading ? null : _load,
+                    icon: const Icon(Icons.refresh),
+                  ),
+                  IconButton(
+                    tooltip: 'Close',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                      ? Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Center(child: Text('Failed to load logs: $_error')),
+                        )
+                      : _lines.isEmpty
+                          ? Center(
+                              child: Text(
+                                'No log output yet. Start the subsystem to capture stdout/stderr.',
+                                style: TextStyle(color: cs.outline),
+                              ),
+                            )
+                          : Container(
+                              color: cs.surfaceContainerHighest,
+                              padding: const EdgeInsets.all(12),
+                              child: Scrollbar(
+                                controller: _scroll,
+                                child: SingleChildScrollView(
+                                  controller: _scroll,
+                                  child: SelectableText(
+                                    _lines.join('\n'),
+                                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                                  ),
+                                ),
+                              ),
+                            ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

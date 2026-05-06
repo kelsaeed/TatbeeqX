@@ -31,9 +31,18 @@ const APPDATA_DIR = process.env.APPDATA
   || path.join(os.homedir(), 'AppData', 'Roaming');
 const REGISTRY_DIR = path.join(APPDATA_DIR, 'TatbeeqX');
 const REGISTRY_FILE = path.join(REGISTRY_DIR, 'subsystems.json');
+const LOGS_DIR = path.join(REGISTRY_DIR, 'logs');
 
 function ensureRegistryDir() {
   if (!fs.existsSync(REGISTRY_DIR)) fs.mkdirSync(REGISTRY_DIR, { recursive: true });
+}
+
+function ensureLogsDir() {
+  if (!fs.existsSync(LOGS_DIR)) fs.mkdirSync(LOGS_DIR, { recursive: true });
+}
+
+function logPathFor(id) {
+  return path.join(LOGS_DIR, `${id}.log`);
 }
 
 function readRegistry() {
@@ -265,15 +274,32 @@ export async function startSubsystem(id) {
 
   // Spawn the backend. `detached: true` + `unref()` lets the child
   // outlive the studio process if the studio crashes — avoids
-  // zombie restarts. stdio is ignored to keep our event loop clean;
-  // a future Phase 2 can pipe to log files.
-  const backend = spawn('node', ['src/server.js'], {
-    cwd: info.backendDir,
-    env: { ...process.env, PORT: String(item.port) },
-    detached: true,
-    stdio: 'ignore',
-    windowsHide: true,
-  });
+  // zombie restarts. stdout + stderr both append to a per-bundle log
+  // file at <APPDATA>/TatbeeqX/logs/<id>.log so failures are visible
+  // in the UI's log viewer (Phase 2b). Append-mode means we keep
+  // history across restarts; rotation is a future concern.
+  ensureLogsDir();
+  const logPath = logPathFor(item.id);
+  // Stamp a header so it's obvious where each launch starts in the
+  // accumulated log.
+  const launchHeader = `\n=== launch ${new Date().toISOString()} (port ${item.port}) ===\n`;
+  fs.appendFileSync(logPath, launchHeader);
+  const logFd = fs.openSync(logPath, 'a');
+  let backend;
+  try {
+    backend = spawn('node', ['src/server.js'], {
+      cwd: info.backendDir,
+      env: { ...process.env, PORT: String(item.port) },
+      detached: true,
+      stdio: ['ignore', logFd, logFd],
+      windowsHide: true,
+    });
+  } finally {
+    // Parent doesn't need its copy of the fd — child inherited a
+    // duplicate at spawn time. Closing here avoids a leak whether
+    // spawn succeeded or threw.
+    fs.closeSync(logFd);
+  }
   backend.unref();
   if (!backend.pid) {
     throw new Error('Failed to spawn backend (no PID)');
@@ -377,6 +403,49 @@ export function stopSubsystem(id) {
   item.lastStoppedAt = new Date().toISOString();
   writeRegistry(reg);
   return toDto(item);
+}
+
+// Phase 4.20 (Phase 2b) — restart = stop + start, sequenced. The brief
+// gap matters: taskkill is async-ish and the new node may otherwise
+// race the dying one for the port. 300 ms is enough on Windows in
+// practice; if it ever turns out to be flaky we can poll for the port
+// to free up instead of sleeping.
+export async function restartSubsystem(id) {
+  stopSubsystem(id);
+  await new Promise((r) => setTimeout(r, 300));
+  return startSubsystem(id);
+}
+
+// Phase 4.20 (Phase 2b) — read the trailing N lines of a subsystem's
+// log without slurping the whole file (it grows unbounded for now,
+// rotation is a future concern). Reads up to MAX_TAIL_BYTES from the
+// end and splits, dropping the first incomplete line if we sliced
+// mid-line. 64 KB is enough for ~500 lines of typical Node output.
+const MAX_TAIL_BYTES = 64 * 1024;
+export function tailLog(id, lines = 200) {
+  const reg = readRegistry();
+  const item = reg.items.find((s) => s.id === id);
+  if (!item) throw new Error('Subsystem not found');
+  const filePath = logPathFor(id);
+  if (!fs.existsSync(filePath)) {
+    return { lines: [], bytes: 0, path: filePath };
+  }
+  const stat = fs.statSync(filePath);
+  const start = Math.max(0, stat.size - MAX_TAIL_BYTES);
+  const fd = fs.openSync(filePath, 'r');
+  try {
+    const buf = Buffer.alloc(stat.size - start);
+    if (buf.length > 0) {
+      fs.readSync(fd, buf, 0, buf.length, start);
+    }
+    const text = buf.toString('utf8');
+    const allLines = text.split(/\r?\n/);
+    if (start > 0 && allLines.length > 0) allLines.shift();
+    const trimmed = allLines.length > lines ? allLines.slice(-lines) : allLines;
+    return { lines: trimmed, bytes: stat.size, path: filePath };
+  } finally {
+    fs.closeSync(fd);
+  }
 }
 
 export const REGISTRY_PATH = REGISTRY_FILE;

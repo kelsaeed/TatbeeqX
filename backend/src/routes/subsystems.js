@@ -16,7 +16,9 @@ import {
   unregisterSubsystem,
   startSubsystem,
   stopSubsystem,
+  restartSubsystem,
   reassignPort,
+  tailLog,
   inspectBundle,
   REGISTRY_PATH,
 } from '../lib/subsystems_manager.js';
@@ -123,6 +125,37 @@ router.post(
     try {
       const item = reassignPort(req.params.id, port);
       res.json(item);
+    } catch (err) {
+      throw badRequest(err.message);
+    }
+  }),
+);
+
+router.post(
+  '/:id/restart',
+  asyncHandler(async (req, res) => {
+    const existing = getSubsystem(req.params.id);
+    if (!existing) throw notFound('Subsystem not found');
+    try {
+      const item = await restartSubsystem(req.params.id);
+      res.json(item);
+    } catch (err) {
+      throw badRequest(err.message);
+    }
+  }),
+);
+
+router.get(
+  '/:id/logs',
+  asyncHandler(async (req, res) => {
+    const existing = getSubsystem(req.params.id);
+    if (!existing) throw notFound('Subsystem not found');
+    const requested = Number(req.query?.lines);
+    const lines = Number.isFinite(requested) && requested > 0
+      ? Math.min(2000, Math.floor(requested))
+      : 200;
+    try {
+      res.json(tailLog(req.params.id, lines));
     } catch (err) {
       throw badRequest(err.message);
     }
