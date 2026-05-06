@@ -738,6 +738,17 @@ export function permissionCodesFor(prefix) {
   return ['view', 'create', 'edit', 'delete', 'export', 'print'].map((a) => `${prefix}.${a}`);
 }
 
+// Phase 4.22 follow-up — perf: was 6 sequential upserts (each = SELECT
+// + INSERT/UPDATE = ~12 round-trips per entity). The "skipDuplicates"
+// option for createMany isn't supported on SQLite in Prisma 5.22, so
+// we pre-fetch the existing codes and only insert the missing ones.
+// Worst case 2 queries (find + insert), best case 1 (all already
+// exist). Either way ~6× faster than the upsert loop.
+//
+// Trade-off: re-applying a preset whose labels changed won't refresh
+// existing permission `name` columns. The contract here is "ensure
+// these rows exist," and preset labels are fixed strings. If a future
+// caller needs label-refresh semantics, do a follow-up updateMany.
 export async function ensurePermissions(prefix, label) {
   const actionsLabel = {
     view: 'View',
@@ -747,13 +758,21 @@ export async function ensurePermissions(prefix, label) {
     export: 'Export',
     print: 'Print',
   };
-  for (const action of Object.keys(actionsLabel)) {
-    const code = `${prefix}.${action}`;
-    await prisma.permission.upsert({
-      where: { code },
-      update: { name: `${label} — ${actionsLabel[action]}`, module: prefix, action },
-      create: { code, name: `${label} — ${actionsLabel[action]}`, module: prefix, action },
-    });
+  const data = Object.entries(actionsLabel).map(([action, lbl]) => ({
+    code: `${prefix}.${action}`,
+    name: `${label} — ${lbl}`,
+    module: prefix,
+    action,
+  }));
+  const codes = data.map((d) => d.code);
+  const existing = await prisma.permission.findMany({
+    where: { code: { in: codes } },
+    select: { code: true },
+  });
+  const existingCodes = new Set(existing.map((e) => e.code));
+  const toCreate = data.filter((d) => !existingCodes.has(d.code));
+  if (toCreate.length > 0) {
+    await prisma.permission.createMany({ data: toCreate });
   }
 }
 
@@ -774,18 +793,38 @@ export async function ensureModule({ code, name, icon, sortOrder }) {
   });
 }
 
+// Phase 4.22 follow-up — perf: was a nested loop doing
+// `roles × perms` individual `rolePermission.create` calls with
+// per-row try/catch (12 round-trips per entity for the standard
+// 2-roles × 6-perms case, 22 seconds for a 5-entity preset apply).
+// Replaced with batch fetch + diff + createMany. SQLite/Prisma 5.22
+// doesn't support `skipDuplicates` so we pre-filter against the
+// existing (roleId, permissionId) pairs.
 export async function grantToSuperAdminAndCompanyAdmin(prefix) {
-  const perms = await prisma.permission.findMany({ where: { module: prefix } });
-  if (perms.length === 0) return;
-
-  const targets = await prisma.role.findMany({ where: { code: { in: ['super_admin', 'company_admin'] } } });
+  const [perms, targets] = await Promise.all([
+    prisma.permission.findMany({ where: { module: prefix }, select: { id: true } }),
+    prisma.role.findMany({
+      where: { code: { in: ['super_admin', 'company_admin'] } },
+      select: { id: true },
+    }),
+  ]);
+  if (perms.length === 0 || targets.length === 0) return;
+  const roleIds = targets.map((r) => r.id);
+  const permIds = perms.map((p) => p.id);
+  const existing = await prisma.rolePermission.findMany({
+    where: { roleId: { in: roleIds }, permissionId: { in: permIds } },
+    select: { roleId: true, permissionId: true },
+  });
+  const existingKey = new Set(existing.map((e) => `${e.roleId}:${e.permissionId}`));
+  const data = [];
   for (const role of targets) {
     for (const p of perms) {
-      try {
-        await prisma.rolePermission.create({ data: { roleId: role.id, permissionId: p.id } });
-      } catch {
-        // ignore duplicates
+      if (!existingKey.has(`${role.id}:${p.id}`)) {
+        data.push({ roleId: role.id, permissionId: p.id });
       }
     }
+  }
+  if (data.length > 0) {
+    await prisma.rolePermission.createMany({ data });
   }
 }

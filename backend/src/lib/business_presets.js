@@ -521,15 +521,22 @@ export async function registerCustomEntity({
     });
   }
 
-  await ensureModule({ code, name: label, icon, sortOrder });
-  await ensurePermissions(permissionPrefix, label);
-  await ensureMenuItem({
-    entityCode: code,
-    label,
-    icon,
-    sortOrder,
-    permissionCode: `${permissionPrefix}.view`,
-  });
+  // Phase 4.22 follow-up — perf: ensureModule/ensurePermissions/
+  // ensureMenuItem are independent (the menu item stores
+  // permissionCode as a plain string, not a foreign key, so no
+  // ordering needed). grantToSuperAdminAndCompanyAdmin runs after
+  // because it queries permissions by module — needs them to exist.
+  await Promise.all([
+    ensureModule({ code, name: label, icon, sortOrder }),
+    ensurePermissions(permissionPrefix, label),
+    ensureMenuItem({
+      entityCode: code,
+      label,
+      icon,
+      sortOrder,
+      permissionCode: `${permissionPrefix}.view`,
+    }),
+  ]);
   await grantToSuperAdminAndCompanyAdmin(permissionPrefix);
 
   return prisma.customEntity.findUnique({ where: { code } });
