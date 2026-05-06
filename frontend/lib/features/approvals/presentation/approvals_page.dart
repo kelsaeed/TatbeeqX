@@ -1,3 +1,12 @@
+// Phase 4.22 — approval queue.
+//
+// "My queue" tab filters the listing to actionable rows: pending
+// requests whose entity is in the caller's <entity>.approve
+// permission set (or all pending for super-admins). "All requests"
+// preserves the existing audit/oversight view with its status
+// dropdown. Tab labels carry a live count so users can see "(3)"
+// waiting without expanding anything.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -16,11 +25,37 @@ class ApprovalsPage extends ConsumerStatefulWidget {
 
 class _ApprovalsPageState extends ConsumerState<ApprovalsPage> {
   String _status = 'pending';
+  // 'mine' = "My queue" tab (default — actionable rows only).
+  // 'all'  = "All requests" tab (existing audit view with status filter).
+  String _tab = 'mine';
+  // Live count of "things I can approve right now" — drives both the
+  // tab label and any future badge surface (sidebar, topbar, etc.).
+  int? _myQueueCount;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_refreshMyQueueCount);
+  }
+
+  Future<void> _refreshMyQueueCount() async {
+    try {
+      final res = await ref
+          .read(apiClientProvider)
+          .getJson('/approvals/pending-count', query: {'mine': 'true'});
+      if (!mounted) return;
+      setState(() => _myQueueCount = (res['total'] as num?)?.toInt() ?? 0);
+    } catch (_) {
+      // Silent — the badge is a hint, not load-bearing. The list
+      // itself surfaces real errors.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final api = ref.watch(apiClientProvider);
     final t = AppLocalizations.of(context);
+    final isMine = _tab == 'mine';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -38,35 +73,60 @@ class _ApprovalsPageState extends ConsumerState<ApprovalsPage> {
               ),
             ],
           ),
+          // Tab toggle. SegmentedButton fits Material 3; mirrors the
+          // pattern users already see on the chart toggle in the
+          // report runner.
           Wrap(
             spacing: 12,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              SizedBox(
-                width: 200,
-                child: DropdownButtonFormField<String>(
-                  initialValue: _status,
-                  decoration: InputDecoration(labelText: t.statusLabel),
-                  items: [
-                    DropdownMenuItem(value: 'pending', child: Text(t.statusPending)),
-                    DropdownMenuItem(value: 'approved', child: Text(t.statusApproved)),
-                    DropdownMenuItem(value: 'rejected', child: Text(t.statusRejected)),
-                    DropdownMenuItem(value: 'cancelled', child: Text(t.statusCancelled)),
-                  ],
-                  onChanged: (v) => setState(() => _status = v ?? 'pending'),
-                ),
+              SegmentedButton<String>(
+                segments: [
+                  ButtonSegment(
+                    value: 'mine',
+                    label: Text(_myQueueCount == null
+                        ? 'My queue'
+                        : 'My queue (${_myQueueCount!})'),
+                    icon: const Icon(Icons.inbox_outlined),
+                  ),
+                  const ButtonSegment(
+                    value: 'all',
+                    label: Text('All requests'),
+                    icon: Icon(Icons.list_alt_outlined),
+                  ),
+                ],
+                selected: {_tab},
+                onSelectionChanged: (s) => setState(() => _tab = s.first),
               ),
+              if (!isMine)
+                SizedBox(
+                  width: 200,
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _status,
+                    decoration: InputDecoration(labelText: t.statusLabel),
+                    items: [
+                      DropdownMenuItem(value: 'pending', child: Text(t.statusPending)),
+                      DropdownMenuItem(value: 'approved', child: Text(t.statusApproved)),
+                      DropdownMenuItem(value: 'rejected', child: Text(t.statusRejected)),
+                      DropdownMenuItem(value: 'cancelled', child: Text(t.statusCancelled)),
+                    ],
+                    onChanged: (v) => setState(() => _status = v ?? 'pending'),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 16),
           PaginatedSearchTable<Map<String, dynamic>>(
-            key: ValueKey(_status),
+            // Re-key on tab + status so PaginatedSearchTable refetches
+            // when either changes. Without this it caches the old query.
+            key: ValueKey('$_tab:$_status'),
             searchable: false,
             fetch: ({required page, required pageSize, required search}) async {
-              final res = await api.getJson('/approvals', query: {
-                'page': page,
-                'pageSize': pageSize,
-                'status': _status,
-              });
+              final query = isMine
+                  ? {'page': page, 'pageSize': pageSize, 'mine': 'true'}
+                  : {'page': page, 'pageSize': pageSize, 'status': _status};
+              final res = await api.getJson('/approvals', query: query);
               final items = (res['items'] as List).cast<Map<String, dynamic>>();
               return (items: items, total: (res['total'] as int?) ?? items.length);
             },
@@ -147,6 +207,7 @@ class _ApprovalsPageState extends ConsumerState<ApprovalsPage> {
       await api.postJson('/approvals/$id/$action', body: {'note': note.text});
       if (!mounted) return;
       setState(() {});
+      _refreshMyQueueCount();
     } catch (err) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err.toString())));
@@ -189,6 +250,7 @@ class _ApprovalsPageState extends ConsumerState<ApprovalsPage> {
       });
       if (!mounted) return;
       setState(() {});
+      _refreshMyQueueCount();
     } catch (err) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err.toString())));

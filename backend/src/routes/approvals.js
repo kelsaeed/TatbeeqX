@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { authenticate } from '../middleware/auth.js';
 import { requirePermission } from '../middleware/permission.js';
-import { hasPermission } from '../lib/permissions.js';
+import { hasPermission, approvableEntities } from '../lib/permissions.js';
 import { asyncHandler, badRequest, forbidden, notFound } from '../lib/http.js';
 import { parseId, parsePagination, requireFields } from '../middleware/validate.js';
 import { writeAudit } from '../lib/audit.js';
@@ -82,15 +82,43 @@ function toDto(r) {
   };
 }
 
+// Phase 4.22 — `?mine=true` filters to "things I can approve right
+// now" by combining `status=pending` with the entity set the caller
+// has `<entity>.approve` permission for. Super-admins get the
+// unfiltered pending list (they can decide anything).
+//
+// Build the where-clause once so /listing and /pending-count agree.
+// Returns null when the caller has no actionable entities — caller
+// short-circuits with an empty result instead of running the query.
+function whereForMine(req) {
+  const approvable = approvableEntities(req.permissions ?? new Set());
+  // null means super-admin — no entity filter, just status=pending.
+  if (approvable === null) return { status: STATUS.PENDING };
+  if (approvable.size === 0) return null;
+  return {
+    status: STATUS.PENDING,
+    entity: { in: Array.from(approvable) },
+  };
+}
+
 router.get(
   '/',
   requirePermission('approvals.view'),
   asyncHandler(async (req, res) => {
     const { skip, take, page, pageSize } = parsePagination(req.query);
-    const where = {};
-    if (req.query.status) where.status = String(req.query.status);
-    if (req.query.entity) where.entity = String(req.query.entity);
-    if (req.query.requestedById) where.requestedById = Number(req.query.requestedById);
+    const mine = String(req.query.mine || '') === 'true';
+    let where;
+    if (mine) {
+      where = whereForMine(req);
+      if (where === null) {
+        return res.json({ items: [], total: 0, page, pageSize });
+      }
+    } else {
+      where = {};
+      if (req.query.status) where.status = String(req.query.status);
+      if (req.query.entity) where.entity = String(req.query.entity);
+      if (req.query.requestedById) where.requestedById = Number(req.query.requestedById);
+    }
     const [items, total] = await prisma.$transaction([
       prisma.approvalRequest.findMany({
         where,
@@ -107,7 +135,14 @@ router.get(
 
 router.get(
   '/pending-count',
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
+    const mine = String(req.query.mine || '') === 'true';
+    if (mine) {
+      const where = whereForMine(req);
+      if (where === null) return res.json({ total: 0 });
+      const total = await prisma.approvalRequest.count({ where });
+      return res.json({ total });
+    }
     const total = await prisma.approvalRequest.count({ where: { status: STATUS.PENDING } });
     res.json({ total });
   }),
