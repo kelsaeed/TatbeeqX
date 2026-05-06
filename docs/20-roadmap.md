@@ -10,27 +10,27 @@ The mobile shell candidate slipped to Phase 4.12; everything else is checked off
 
 ## Phase 4.11 candidates (originally proposed)
 
-- [ ] **Mobile shell** — `flutter run -d ios|android`. Adaptive forms, mobile-friendly tables. Preserve the no-plugin rule. Risk: needs a device for verification. **Slipped to Phase 4.12.**
+- [x] ~~**Mobile shell** — `flutter run -d ios|android`. Adaptive forms, mobile-friendly tables. Preserve the no-plugin rule. Risk: needs a device for verification. **Slipped to Phase 4.12.**~~ Shipped in Phase 4.14. iOS + Android scaffolds, `path_provider` as the only new dep, existing responsive shell handled the layout. Release signing deferred. See [45-mobile-shell.md](45-mobile-shell.md).
 - [x] ~~**Full UI string migration** — dialog titles, table column headers, validation messages, snackbar text across the rest of the feature pages.~~ Shipped in Phase 4.11. ~330 strings across 32 files migrated; ARB grew from 49 → ~225 keys × 3 locales. Deep power-user editor surfaces (block_inspectors, theme_builder panels, page-builder add-panel) deliberately deferred — Super Admin-only, low ROI. See [32-i18n-strings.md](32-i18n-strings.md).
 - [x] ~~**Native S3 / restic uploaders** in the receiver — drop the rclone hand-off requirement.~~ Shipped in Phase 4.11. S3 mode is hand-rolled SigV4 over native fetch (no AWS SDK dep, supports any S3-compatible provider). Restic mode spawns the binary directly. See [tools/backup-sync/README.md](../tools/backup-sync/README.md).
 - [x] ~~**Per-key translation editor** — replace the JSON textarea in `/translations` with a key-by-key form (with side-by-side English reference).~~ Shipped in Phase 4.11. Navigates to `/translations/edit/:locale`. Search, untranslated-only filter, drop-orphans-on-save toggle. Raw JSON kept as overflow-menu option. See [42-translation-management.md](42-translation-management.md#per-key-editor-phase-411).
 - [x] ~~**Backup retention policy on disk** — auto-prune `.db` / `.sql` / `.enc` files older than N days; honour an env-var schedule.~~ Shipped in Phase 4.11 — see [33-backups.md](33-backups.md#retention-policy). Implemented as DB-backed settings (`system.backup_retention_*`) rather than env vars so they hot-reload without restart.
-- [ ] **iframe rendering on web build** — placeholder text on desktop, real `<iframe>` on web.
-- [ ] **Postgres dev compose** — bring up the commented-out `postgres` service in compose with a sensible default `DATABASE_URL`, validate the `pg_dump` path against it.
+- [x] ~~**iframe rendering on web build** — placeholder text on desktop, real `<iframe>` on web.~~ Shipped in Phase 4.15. Conditional imports in `iframe_renderer{,_web,_stub}.dart`; web uses `<iframe>` with `sandbox`, desktop shows a placeholder card.
+- [ ] **Postgres dev compose** — bring up the commented-out `postgres` service in compose with a sensible default `DATABASE_URL`, validate the `pg_dump` path against it. **Deferred in Phase 4.15** — blocked on Docker Desktop not being installed in dev environment; the `docker-compose.yml` already has the service defined.
 - [x] ~~**Webhook signature verification helper** under `tools/` so external receivers in non-Node languages have a reference implementation.~~ Shipped in Phase 4.11 — see [tools/webhook-verify/README.md](../tools/webhook-verify/README.md). Python + Go + PHP + Bash, all stdlib-only, with a Node cross-language regression test.
 
 ## Customization platform improvements
 
-- [ ] **Auto-`ALTER TABLE` on custom-entity column edits** — diff the column config on `PUT /api/custom-entities/:id` and run the necessary `ALTER TABLE ADD/DROP COLUMN`. Pitfall: SQLite's limited `ALTER TABLE` (no `DROP COLUMN` until 3.35; no easy `MODIFY COLUMN`). Plan a "rebuild" path: `CREATE TABLE _new`, copy, `DROP`, `RENAME`. (See [11-custom-entities.md](11-custom-entities.md).)
+- [x] ~~**Auto-`ALTER TABLE` on custom-entity column edits** — diff the column config on `PUT /api/custom-entities/:id` and run the necessary `ALTER TABLE ADD/DROP COLUMN`.~~ Shipped in Phase 4.5. `diffColumns()` + `applyColumnDiff()`; adds and drops applied automatically (SQLite ≥ 3.35); type changes flagged as `skipped` with the rebuild instructions.
 - [ ] **Templates including seed data** — currently `apply` copies structure only. Add an opt-in to also copy the entity's data rows. (See [14-templates.md](14-templates.md).)
-- [ ] **Templates including reports + saved queries** — extend the `full` snapshot.
-- [ ] **Custom relations across entities** — the `relation` column type exists in the schema but the dropdown is single-target. Add multi-select and many-to-many.
+- [x] ~~**Templates including reports + saved queries** — extend the `full` snapshot.~~ Shipped in Phase 4.2. `SUPPORTED_KINDS` extended to `theme/business/pages/reports/queries/full`; capture and apply both walk the reports + queries kinds.
+- [x] ~~**Custom relations across entities** — the `relation` column type exists in the schema but the dropdown is single-target. Add multi-select and many-to-many.~~ Shipped in Phase 4.15. `relations` (plural) column type with auto-managed join table `<source>_<col>_to_<target>`; symmetric reverse-cascade delete + nullify on single `relation`. See [47-custom-entity-relations.md](47-custom-entity-relations.md).
 
 ## Reports v2
 
-- [ ] **Formula columns** — let a report builder return a column whose value is a function of other columns (computed in JS).
-- [ ] **More chart types** — line, area, pie. The frontend uses `fl_chart`, which supports them.
-- [ ] **Scheduled runs** — store a cron expression on a report row, run on schedule, persist results, optionally email/upload.
+- [ ] **Formula columns** — let a report builder return a column whose value is a function of other columns (computed in JS). **Next up — Phase 4.21 candidate.**
+- [ ] **More chart types** — line, area, pie. The frontend uses custom-painted charts, not `fl_chart` (kept the no-plugin philosophy in 4.1). Adding shapes means extending the painters.
+- [x] ~~**Scheduled runs** — store a cron expression on a report row, run on schedule, persist results, optionally email/upload.~~ Shipped in Phase 4.3. `ReportSchedule` + `ScheduledReportRun` models, in-process minute-tick cron loop, frequency enum + 5-field standard cron parser, `/report-schedules` page. Email-the-results path is in 4.19's deferred bucket.
 - [ ] **Pivot/group-by UI** — the runner currently shows raw rows; a UI grouping/pivoting layer would extend coverage without new builders.
 
 ## Workflows + approvals
@@ -40,31 +40,32 @@ The mobile shell candidate slipped to Phase 4.12; everything else is checked off
 
 ## Theming
 
-- [ ] **Per-company theming** — finish the company-switcher. Each company can have its own active theme; switching companies refreshes the theme.
+- [x] ~~**Per-company theming** — finish the company-switcher. Each company can have its own active theme; switching companies refreshes the theme.~~ Shipped in Phase 4.5. `_CompanySwitcher` in the topbar; `themeControllerProvider.loadActive(companyId: …)` reloads on switch.
 - [ ] **Theme variables** — let users define their own named tokens (e.g. `--accent-success`) used by custom widgets.
 
 ## Mobile
 
-- [ ] **Phone-friendly shell** — adaptive sidebar (drawer on mobile, sidebar on desktop). Most feature pages already use responsive widgets but the dashboard shell is desktop-first.
-- [ ] **Mobile builds** — `flutter run -d ios|android`. Token storage will need a platform-specific path; keep the no-plugin rule.
+- [x] ~~**Phone-friendly shell** — adaptive sidebar (drawer on mobile, sidebar on desktop).~~ Shipped in Phase 4.6 polish + Phase 4.14 (sidebar→drawer below 800 px since 4.6, mobile shell formalized in 4.14).
+- [x] ~~**Mobile builds** — `flutter run -d ios|android`. Token storage will need a platform-specific path; keep the no-plugin rule.~~ Shipped in Phase 4.14. `path_provider` is the only new dep; `TokenStorage._resolveDir()` branches by platform; release signing deferred. See [45-mobile-shell.md](45-mobile-shell.md).
+- [ ] **Mobile release signing** — Android keystore + iOS provisioning. Out of scope until a customer needs store distribution; documented in [45-mobile-shell.md](45-mobile-shell.md) + [46-mobile-release-signing.md](46-mobile-release-signing.md).
 
 ## Cloud-first deploy
 
-- [ ] **Docker compose** — one service for the API, one for Postgres, one for nginx. Out-of-the-box `docker compose up` for a cloud install.
-- [ ] **HTTPS reverse proxy template** — nginx config that terminates TLS and proxies to `localhost:4040`.
+- [x] ~~**Docker compose** — one service for the API, one for Postgres, one for nginx.~~ Shipped in Phase 4.5. `backend/Dockerfile`, `.dockerignore`, `docker-compose.yml`, `deploy/nginx.conf`. Two services + named volumes + commented-out Postgres.
+- [x] ~~**HTTPS reverse proxy template** — nginx config that terminates TLS and proxies to `localhost:4040`.~~ Shipped in Phase 4.5 alongside Docker compose (`deploy/nginx.conf`).
 - [ ] **Multi-tenant single-DB option** — a `tenantId` foreign key on the top-level entities so one DB hosts many isolated customers. (Current: many companies in one DB; isolation is by company filtering.)
 
 ## Operations
 
 - [ ] **Upload garbage collection** — periodic job that compares files in `uploads/` against URLs referenced anywhere in `themes`/`settings`/`custom_entities` rows; deletes orphans. (See [15-uploads.md](15-uploads.md).)
-- [ ] **Backup endpoint** — `POST /api/admin/backup` that copies `dev.db` to a configured destination and returns the path.
+- [x] ~~**Backup endpoint** — `POST /api/admin/backup` that copies `dev.db` to a configured destination and returns the path.~~ Shipped in Phase 4.6 as `/api/admin/backups` (CRUD + restore). Native `pg_dump`/`mysqldump` followed in 4.7; encryption + streaming + key rotation in 4.8/4.9; signed download URLs + webhook event in 4.10; retention sweep in 4.11.
 - [ ] **Health metrics** — beyond `/api/health`. Counts, last-N audit summary, DB size.
-- [ ] **i18n** — currently English-only. Wrap user-facing strings in a translation helper; ship Arabic and French as the first non-English locales.
+- [x] ~~**i18n** — currently English-only. Wrap user-facing strings in a translation helper; ship Arabic and French as the first non-English locales.~~ Shipped progressively across Phases 4.5 → 4.11. Foundation in 4.5, full ARB pipeline in 4.6, sidebar/topbar/role labels in 4.7, deep editor surfaces in 4.15. ~225 keys × 3 locales (en/ar/fr) with ICU plurals. Deep power-user surfaces (SQL runner internals, page-renderer runtime) deliberately stay English.
 - [ ] **Date/time formatting per user locale** — partially in place via Flutter's `intl`; settle on a single rule.
 
 ## Developer experience
 
-- [ ] **Tests** — there are none yet. Start with `backend/tests/permissions.test.js` and `backend/tests/sql_runner.test.js` (the two surfaces with the most invariants).
+- [x] ~~**Tests** — there are none yet. Start with `backend/tests/permissions.test.js` and `backend/tests/sql_runner.test.js` (the two surfaces with the most invariants).~~ Vitest configured in Phase 4.4 (58 tests); 340+ across 28 files as of Phase 4.19. Receiver-side (`tools/backup-sync/`) has its own 28-test suite. Cross-language webhook verifier helpers tested via spawned subprocesses in 4.11. Frontend has no widget-test suite (verified via `flutter analyze` + operator smoke).
 - [ ] **Type-checked frontend models** — the API responses are typed in Dart but the JSON shape is informal. Generate models from a single source (OpenAPI?) or hand-write a thin contract layer.
 - [ ] **Migration linting** — fail CI if a migration drops a column without explicit confirmation.
 

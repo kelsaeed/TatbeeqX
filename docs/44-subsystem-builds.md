@@ -133,9 +133,78 @@ Until that lands, expect:
 - Bundle size: ~80–120 MB (Flutter engine dominates; trimming features won't shrink this much).
 - Runtime: a bit lighter than the full studio because the lockdown hides initialization for super-admin pages, but the heavy lifting (auth, RBAC, Prisma) is unchanged.
 
+## Port management (Phase 4.20)
+
+By default a subsystem build bakes `PORT=4040` into `backend/.env` and ships unchanged. Two flags on the build CLI extend this for cases where 4040 might be busy on the customer host or where the vendor wants to run multiple subsystems side-by-side on one machine for a demo.
+
+```bash
+# Single explicit port — bakes PORT=4044 into the bundle. start.bat
+# only ever tries this port. No fallback.
+node tools/build-subsystem/build.mjs --port 4044 ...
+
+# Pool — bakes a range. Build-time scan picks the first free port on
+# the build host as the primary; runtime scan in start.bat picks
+# again on the customer host and falls through to the next free
+# port if the primary is busy.
+node tools/build-subsystem/build.mjs --port-pool 4040-4050 ...
+```
+
+**What gets baked:**
+- `backend/.env` → `PORT=<primary>`.
+- `flutter build windows --release --dart-define=API_BASE_URL=http://localhost:<primary>/api` — compile-time default for the .exe.
+- `start.bat` → a `setlocal enabledelayedexpansion` block with the runtime pool (primary first, fallbacks after). `netstat -ano | findstr ":<port> "` picks the first free port; `set PORT=...` and `set TATBEEQX_API_BASE_URL=...` are exported before the backend + .exe launch.
+
+**Flutter runtime override.** [`AppConfig.apiBaseUrl`](../frontend/lib/core/config/app_config.dart) reads `Platform.environment['TATBEEQX_API_BASE_URL']` first, falling back to the compile-time `--dart-define`. This is what lets `start.bat` redirect the same .exe at a different port without rebuilding.
+
+**`dotenv` precedence note:** the backend's [env.js](../backend/src/config/env.js) reads `process.env.PORT ?? 4040`, and dotenv (default behavior) doesn't override values already present in `process.env`. So when `start.bat` `set PORT=...` before launching `node src/server.js`, the shell value wins over `.env`. That's by design.
+
+## Subsystems Manager (Phase 4.20)
+
+Studio-only surface for launching locally-built subsystem bundles side-by-side. **Hidden in lockdown builds** — a subsystem managing other subsystems would fork-bomb itself; the surface only makes sense in the dev/studio install. Added to `HIDDEN_IN_LOCKDOWN` in [`lib/subsystem.js`](../backend/src/lib/subsystem.js).
+
+- Registry: `<APPDATA>/TatbeeqX/subsystems.json` (one row per registered bundle: id / name / bundleDir / port / backendPid / exePid / lastStartedAt / lastStoppedAt).
+- Logs: `<APPDATA>/TatbeeqX/logs/<id>.log` (per-bundle, append-mode, single-level rotation at 5 MB → `<id>.log.1`).
+- Backend lib: [`backend/src/lib/subsystems_manager.js`](../backend/src/lib/subsystems_manager.js).
+- Backend route: [`backend/src/routes/subsystems.js`](../backend/src/routes/subsystems.js) — mounted at `/api/admin/subsystems`, gated by `requireSuperAdmin()`.
+- Frontend page: [`frontend/lib/features/subsystems/presentation/subsystems_page.dart`](../frontend/lib/features/subsystems/presentation/subsystems_page.dart) — at `/subsystems`. Sidebar menu seeded with sortOrder 94.
+
+### REST surface
+
+| Method + path                              | Effect                                                                                              |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `GET    /api/admin/subsystems`             | List rows. Each row carries a live `status` (running / partial / stopped / missing) computed from `kill(pid, 0)` + `fs.existsSync(bundleDir)`. |
+| `POST   /api/admin/subsystems/inspect`     | Pre-flight a folder. Returns `{ bundleDir, port, suggestedName, hasExe }` if valid; 400 otherwise. Used by the Add-bundle dialog. |
+| `POST   /api/admin/subsystems`             | Register a bundle (`{ bundleDir, name? }`).                                                         |
+| `DELETE /api/admin/subsystems/:id`         | Unregister. Refuses if running.                                                                     |
+| `POST   /api/admin/subsystems/:id/start`   | Spawn backend + .exe. Runs first-boot setup if needed.                                              |
+| `POST   /api/admin/subsystems/:id/stop`    | `taskkill /F /T` on tracked PIDs.                                                                   |
+| `POST   /api/admin/subsystems/:id/restart` | Stop + 300 ms + start, sequenced.                                                                   |
+| `POST   /api/admin/subsystems/:id/port`    | Reassign port (rewrites `.env` PORT line). Refuses if running. Collision check against other rows. |
+| `GET    /api/admin/subsystems/:id/logs`    | Tail `<id>.log`. Returns `{ lines, bytes, path }`. `?lines=N` defaults to 200, capped at 2000.      |
+
+### Process model
+
+The studio spawns the bundle's `node src/server.js` and `<name>.exe` **directly** (not via `start.bat`). Direct spawn gives clean PIDs to track. The trade-off: the studio also has to replicate `start.bat`'s first-boot path (`npm install --omit=dev` + `prisma migrate deploy` + `prisma/seed.js`) on first start — `ensureBackendBootstrapped()` in [`subsystems_manager.js`](../backend/src/lib/subsystems_manager.js) handles that.
+
+- **Detachment.** Children spawn with `detached: true` + `unref()` so they outlive a studio crash. The next studio session sees them via `kill(pid, 0)` and reports `running` correctly.
+- **Stop.** `taskkill /PID <pid> /F /T` (force + tree). Node's `process.kill()` doesn't reliably terminate Windows GUI processes, and SIGTERM has no Windows equivalent.
+- **Status.** `kill(pid, 0)` throws on Windows when the process doesn't exist (libuv translates to OpenProcess permission probe). Catch = dead PID. Plus `fs.existsSync(bundleDir)` for the `'missing'` state.
+- **Logs.** `stdio: ['ignore', logFd, logFd]` redirects stdout + stderr to the per-bundle log file. The parent closes its fd copy after spawn; the child inherits a duplicate. `.exe` stdout is intentionally NOT captured — it's a GUI app with no diagnostic value there.
+
+### What you can't do (yet)
+
+Deliberately not implemented:
+- **Folder picker** in the Add-bundle dialog. Currently you paste the path. Skipped to avoid pulling in `file_selector` as a new dep.
+- **i18n** of the page strings. Hardcoded English; rest of the studio routes through ARB. Folded into the next i18n chore pass.
+- **Multi-level log rotation.** Single rotation only — once `<id>.log.1` exists, the next rotation clobbers it.
+- **stdout/stderr from the .exe.** GUI app, no useful output.
+- **Live status push.** Page polls every 5s instead of WebSocket / SSE.
+
 ## Tests
 
 - [`backend/tests/subsystem.test.js`](../backend/tests/subsystem.test.js) — `isLockdown`, `getSubsystemInfo`, `setSubsystemInfo`, `GET /api/subsystem/info`.
 - [`backend/tests/boot_seeder.test.js`](../backend/tests/boot_seeder.test.js) — first-boot seeder idempotency, error handling.
 
 The build CLI itself doesn't ship a vitest suite (it shells out to `flutter` and `npm`); smoke-test it with `--no-build` against a sample template — see the script's source for a 30-second self-check.
+
+The Subsystems Manager is integration-tested manually against real bundles. Adding vitest coverage for the registry I/O + log tail + status logic is feasible but punted — the lib is small (~330 lines) and most of its surface is OS-level (`spawn` / `taskkill` / file descriptors) which mocks awkwardly.

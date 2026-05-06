@@ -232,7 +232,7 @@ Closes the biggest Phase 4.12 caveat: vendor used to need to manually disable th
 - ✅ **No plaintext on disk** — verified by smoke-test: `grep -r "<password>" <bundle-dir>/` returns empty after build. The `seed.json` contains only the bcrypt hash; `system.boot_seed_applied` only stores a timestamp.
 - ✅ **Tests grow to 159 / 17 files** (was 155): 4 new cases in `tests/boot_seeder.test.js` covering the lockdownAdmin flow, the lockdown-only gate, missing-hash rejection, and idempotent re-apply against an existing user. See [44-subsystem-builds.md](44-subsystem-builds.md#customer-admin-user--automated-phase-413).
 
-### ✅ Phase 4.14 — Mobile shell (DONE) — **CURRENT**
+### ✅ Phase 4.14 — Mobile shell (DONE)
 
 Closes the last Phase 4.11 carry-over. The Flutter app now runs on iOS and Android in addition to Windows desktop and web. No native plugins beyond `path_provider`; the existing responsive shell (sidebar→drawer below 800 px, in place since Phase 4.6) handled the layout side. See [45-mobile-shell.md](45-mobile-shell.md).
 
@@ -342,7 +342,7 @@ Per-user notification tray, ergonomic complement to the workflow engine.
 - ✅ **Frontend** — `NotificationsBell` in the topbar (45s poll, badge with cap, popover with mark-read + dismiss + tap-to-link), full `/notifications` page with unread-only toggle + bulk actions.
 - ✅ **13 new tests** — CRUD, per-account isolation, unread-only filter, ordering (unread-first then newest by id), bulk-dismiss read vs all, end-to-end notify_user via a workflow run.
 
-### ✅ Phase 4.19 — SMTP outbound email (DONE — 2026-05-02) — **CURRENT**
+### ✅ Phase 4.19 — SMTP outbound email (DONE — 2026-05-02)
 
 Vendor-neutral SMTP via Nodemailer. Stub-mode fallback when `SMTP_HOST` is unset — non-critical callers gracefully no-op + log a single warning per process boot, while critical callers (forgot-password) check `isConfigured()` first and return 503 so operators know to wire it up. See [49-user-manual.md](49-user-manual.md) for the user-facing flows.
 
@@ -356,6 +356,31 @@ Vendor-neutral SMTP via Nodemailer. Stub-mode fallback when `SMTP_HOST` is unset
 - ✅ **Tests grow to 28 files / 340 passing** (+17 from 4.18).
 
 **Deferred (documented in the workflow engine doc):** scheduled-report email digest (would need `ReportSchedule.recipients` JSON field + cron-loop email send + UI to manage subscribers), `notify_role` workflow action (helper exists but not yet wired), SMTP retry policy + bounce handling.
+
+### ✅ Phase 4.20 — Subsystem port management + Subsystems Manager (DONE — 2026-05-06) — **CURRENT**
+
+Two-part follow-up to Phase 4.12/4.13's subsystem-build infrastructure: ship-time port pool + run-time subsystems manager. Built so a vendor can demo three subsystems on one laptop and so a customer host can boot a bundle even if the default port is taken. See [44-subsystem-builds.md](44-subsystem-builds.md#port-management-phase-420) and [44-subsystem-builds.md](44-subsystem-builds.md#subsystems-manager-phase-420) for the full design.
+
+**Phase 1 — port management in `tools/build-subsystem`:**
+- ✅ **`--port <n>` / `--port-pool <a-b>` flags** — bake either a single port or a range. With a pool, the build host scans for the first free port and uses it as the primary; the rest are baked as runtime fallback. Default (no flag) keeps `[4040]` with no fallback so existing customer bundles ship unchanged.
+- ✅ **`start.bat` runtime fallback** — `setlocal enabledelayedexpansion` + `netstat -ano | findstr` loop scans the baked pool on the customer host and picks the first free port. Sets `PORT=` for the backend and `TATBEEQX_API_BASE_URL=http://localhost:<n>/api` for the .exe before launch.
+- ✅ **Flutter `AppConfig.apiBaseUrl` runtime override** — converted from `static const String` to `static final String` resolved from `Platform.environment['TATBEEQX_API_BASE_URL']` with the compile-time `--dart-define` as fallback. Lets the same .exe redirect at boot when the build-time primary turns out to be busy.
+
+**Phase 2 — Subsystems Manager studio surface:**
+- ✅ **Registry at `<APPDATA>/TatbeeqX/subsystems.json`** — lists registered bundles (id / name / bundleDir / port / backendPid / exePid / lastStartedAt / lastStoppedAt). Lib at [`backend/src/lib/subsystems_manager.js`](../backend/src/lib/subsystems_manager.js); route at [`backend/src/routes/subsystems.js`](../backend/src/routes/subsystems.js) gated by `requireSuperAdmin()`.
+- ✅ **`/subsystems` page** — Flutter studio surface with status pill (running / partial / stopped / missing), Start / Stop / Restart / View logs / Reassign port / Remove actions, and an Add-bundle dialog that pre-flight-inspects the path. Hidden in lockdown builds (a subsystem managing other subsystems would fork-bomb itself); added to `HIDDEN_IN_LOCKDOWN` in [`backend/src/lib/subsystem.js`](../backend/src/lib/subsystem.js).
+- ✅ **Process model** — direct `child_process.spawn` of `node src/server.js` + the bundle's `.exe` (NOT via start.bat — direct spawn gives clean PIDs to track). `detached: true` + `unref()` so children outlive a studio crash; `kill(pid, 0)` decides alive/dead on next status read. Stop = `taskkill /F /T` on tracked PIDs (Windows has no SIGTERM equivalent for GUI apps). First-boot path mirrors start.bat: `npm install --omit=dev` + `prisma migrate deploy` + `prisma/seed.js` if the bundle hasn't been bootstrapped yet.
+- ✅ **Log capture + tail viewer** — backend stdout + stderr append to `<APPDATA>/TatbeeqX/logs/<id>.log` with a `=== launch <ts> (port N) ===` header per launch. `tailLog(id, lines)` reads the last ~64 KB without slurping the file. Single-level rotation: at 5 MB the log rolls to `<id>.log.1`. Skip .exe stdout — it's a GUI app, no diagnostic value there.
+- ✅ **Restart** — stop + 300 ms + start, sequenced. The brief gap matters because taskkill is async-ish; without it the new node can race the dying one for the port.
+- ✅ **Port reassignment** — `reassignPort(id, newPort)` rewrites the bundle's `backend/.env` `PORT=` line in place. Refuses to operate on a running bundle (live port-swap would orphan the .exe pointed at a stale URL). Collision check against other registered bundles.
+- ✅ **Reliability cleanups** — `'missing'` status when not running and `bundleDir` no longer exists (UI disables Start + Reassign for these rows). `Timer.periodic(5s)` silent auto-poll on the page so externally-killed bundles flip to "stopped" without a manual refresh; skipped while a row is mid-transition so it never races a start/stop call.
+
+**Seed + permissions:**
+- ✅ New `subsystems` permission module (`view`, `manage` actions) and sidebar menu (sortOrder 94). Localized in `MENU_LABELS` (en/ar/fr).
+
+**No new tests** — the manager is pure infrastructure and integration-tested manually against real bundles. The build-CLI port logic is covered by smoke tests (`node --check` + `--help` rendering + parser unit checks).
+
+**Deferred** — folder picker in Add-bundle (would pull in `file_selector` dep); ARB-localizing the new page strings (chore for next i18n pass). Both explicitly punted in favor of shipping reliability first.
 
 ---
 
