@@ -31,6 +31,7 @@ import '../features/database/presentation/database_page.dart';                 /
 import '../features/custom_entities/presentation/custom_entities_page.dart';   // MOD: custom-entities
 import '../features/custom/presentation/custom_list_page.dart';                // MOD: custom-entities
 import '../features/templates/presentation/templates_page.dart';               // MOD: templates
+import '../features/subsystems/presentation/subsystems_page.dart';             // MOD: subsystems
 import '../features/system/presentation/system_page.dart';                     // MOD: system
 import '../features/system_logs/presentation/system_logs_page.dart';           // MOD: system-logs
 import '../features/login_events/presentation/login_events_page.dart';         // MOD: login-events
@@ -135,6 +136,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           // MOD-BEGIN: templates
           GoRoute(path: '/templates', builder: (_, __) => const TemplatesPage()),
           // MOD-END: templates
+          // MOD-BEGIN: subsystems
+          GoRoute(path: '/subsystems', builder: (_, __) => const SubsystemsPage()),
+          // MOD-END: subsystems
           // MOD-BEGIN: system
           GoRoute(path: '/system', builder: (_, __) => const SystemPage()),
           // MOD-END: system

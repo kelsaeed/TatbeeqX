@@ -56,6 +56,11 @@ const HIDDEN_IN_LOCKDOWN = new Set([
   'pages',
   'translations',
   'themes',
+  // Phase 4.20 (Phase 2) — Subsystems Manager is a studio-only
+  // feature. A subsystem build managing OTHER subsystems would
+  // fork-bomb itself; the surface only makes sense in the dev/studio
+  // install.
+  'subsystems',
 ]);
 
 function readBrandingFromSetting(value) {
