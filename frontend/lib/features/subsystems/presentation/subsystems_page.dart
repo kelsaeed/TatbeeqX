@@ -92,6 +92,31 @@ class _SubsystemsPageState extends ConsumerState<SubsystemsPage> {
     }
   }
 
+  Future<void> _reassignPort(Map<String, dynamic> item) async {
+    final newPort = await showDialog<int>(
+      context: context,
+      builder: (_) => _ReassignPortDialog(currentPort: item['port'] as int),
+    );
+    if (newPort == null) return;
+    final id = item['id'] as String;
+    setState(() => _busyId = id);
+    try {
+      await ref.read(apiClientProvider).postJson(
+        '/admin/subsystems/$id/port',
+        body: {'port': newPort},
+      );
+      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Reassign failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busyId = null);
+    }
+  }
+
   Future<void> _remove(Map<String, dynamic> item) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -247,6 +272,7 @@ class _SubsystemsPageState extends ConsumerState<SubsystemsPage> {
                         onStart: () => _start(s),
                         onStop: () => _stop(s),
                         onRemove: () => _remove(s),
+                        onReassign: () => _reassignPort(s),
                       ),
                     ),
                     const Divider(height: 1),
@@ -292,12 +318,14 @@ class _RowActions extends StatelessWidget {
     required this.onStart,
     required this.onStop,
     required this.onRemove,
+    required this.onReassign,
   });
   final String status;
   final bool busy;
   final VoidCallback onStart;
   final VoidCallback onStop;
   final VoidCallback onRemove;
+  final VoidCallback onReassign;
 
   @override
   Widget build(BuildContext context) {
@@ -324,10 +352,92 @@ class _RowActions extends StatelessWidget {
             icon: const Icon(Icons.play_circle_outline, color: Colors.green),
           ),
         IconButton(
+          tooltip: isRunning ? 'Stop the subsystem first' : 'Reassign port',
+          onPressed: isRunning ? null : onReassign,
+          icon: const Icon(Icons.swap_horiz),
+        ),
+        IconButton(
           tooltip: 'Remove from registry',
           onPressed: isRunning ? null : onRemove,
           icon: const Icon(Icons.delete_outline),
         ),
+      ],
+    );
+  }
+}
+
+class _ReassignPortDialog extends StatefulWidget {
+  const _ReassignPortDialog({required this.currentPort});
+  final int currentPort;
+
+  @override
+  State<_ReassignPortDialog> createState() => _ReassignPortDialogState();
+}
+
+class _ReassignPortDialogState extends State<_ReassignPortDialog> {
+  late final TextEditingController _ctrl;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.currentPort.toString());
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final raw = _ctrl.text.trim();
+    final n = int.tryParse(raw);
+    if (n == null || n < 1 || n > 65535) {
+      setState(() => _error = 'Port must be an integer in 1..65535');
+      return;
+    }
+    Navigator.pop(context, n);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Reassign port'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Currently: ${widget.currentPort}'),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _ctrl,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: 'New port',
+              border: const OutlineInputBorder(),
+              errorText: _error,
+            ),
+            onSubmitted: (_) => _submit(),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Rewrites the bundle\'s backend/.env. The subsystem must be '
+            'stopped. Doesn\'t affect start.bat\'s own port-pool scan.',
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.outline,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Reassign')),
       ],
     );
   }

@@ -16,6 +16,7 @@ import {
   unregisterSubsystem,
   startSubsystem,
   stopSubsystem,
+  reassignPort,
   inspectBundle,
   REGISTRY_PATH,
 } from '../lib/subsystems_manager.js';
@@ -106,6 +107,21 @@ router.post(
     if (!existing) throw notFound('Subsystem not found');
     try {
       const item = stopSubsystem(req.params.id);
+      res.json(item);
+    } catch (err) {
+      throw badRequest(err.message);
+    }
+  }),
+);
+
+router.post(
+  '/:id/port',
+  asyncHandler(async (req, res) => {
+    const existing = getSubsystem(req.params.id);
+    if (!existing) throw notFound('Subsystem not found');
+    const port = Number(req.body?.port);
+    try {
+      const item = reassignPort(req.params.id, port);
       res.json(item);
     } catch (err) {
       throw badRequest(err.message);

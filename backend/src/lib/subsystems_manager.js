@@ -314,6 +314,58 @@ function taskkill(pid) {
   });
 }
 
+// Phase 4.20 (Phase 2c) — rewrite the bundle's backend/.env PORT line
+// in place and update the registry. Refuses to operate on a running
+// bundle: a live port-swap would orphan the existing backend / .exe
+// pair and leave the user staring at a stale window pointed at a
+// nothing-server. Stop-then-reassign is predictable; auto-restart on
+// reassign is not. Collision check against other registered bundles
+// catches the obvious double-assign before the next start fails to
+// bind. start.bat's own pool scan is unaffected — that's an
+// independent code path; this function only changes what the studio's
+// spawn targets.
+export function reassignPort(id, newPort) {
+  if (!Number.isInteger(newPort) || newPort < 1 || newPort > 65535) {
+    throw new Error('Port must be an integer in 1..65535');
+  }
+  const reg = readRegistry();
+  const item = reg.items.find((s) => s.id === id);
+  if (!item) throw new Error('Subsystem not found');
+  if (computeStatus(item) !== 'stopped') {
+    throw new Error('Stop the subsystem before reassigning its port');
+  }
+  if (item.port === newPort) {
+    return toDto(item);
+  }
+  const collision = reg.items.find((s) => s.id !== id && s.port === newPort);
+  if (collision) {
+    throw new Error(`Port ${newPort} is already assigned to "${collision.name}"`);
+  }
+  const info = inspectBundle(item.bundleDir);
+  const raw = fs.readFileSync(info.envPath, 'utf8');
+  let found = false;
+  const lines = raw.split(/\r?\n/).map((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) return line;
+    const eq = trimmed.indexOf('=');
+    const key = trimmed.slice(0, eq).trim();
+    if (key === 'PORT') {
+      found = true;
+      return `PORT=${newPort}`;
+    }
+    return line;
+  });
+  let updated = lines.join('\n');
+  if (!found) {
+    if (!updated.endsWith('\n')) updated += '\n';
+    updated += `PORT=${newPort}\n`;
+  }
+  fs.writeFileSync(info.envPath, updated, 'utf8');
+  item.port = newPort;
+  writeRegistry(reg);
+  return toDto(item);
+}
+
 export function stopSubsystem(id) {
   const reg = readRegistry();
   const item = reg.items.find((s) => s.id === id);
