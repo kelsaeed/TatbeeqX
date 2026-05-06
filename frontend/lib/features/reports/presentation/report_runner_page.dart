@@ -17,6 +17,7 @@ import '../../../core/providers.dart';
 import '../../../shared/widgets/charts.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../../shared/widgets/page_header.dart';
+import '../../auth/application/auth_controller.dart';
 
 class ReportRunnerPage extends ConsumerStatefulWidget {
   const ReportRunnerPage({super.key, required this.report});
@@ -52,13 +53,112 @@ class _ReportRunnerPageState extends ConsumerState<ReportRunnerPage> {
   // based on the column's `numeric` flag at apply time.
   final Map<String, String> _aggregations = {};
 
+  // Phase 4.21d — the persisted view from report.config.savedView. We
+  // diff current transform state against this to decide if "Save view"
+  // is enabled, and seed transform state from it on first render so
+  // the report opens already pivoted/grouped.
+  Map<String, dynamic>? _savedView;
+
   late final Map<String, dynamic> _params;
 
   @override
   void initState() {
     super.initState();
-    _params = Map<String, dynamic>.from((widget.report['config'] as Map?) ?? const {});
+    final cfg = (widget.report['config'] as Map?) ?? const {};
+    _params = Map<String, dynamic>.from(cfg);
+    final saved = cfg['savedView'];
+    if (saved is Map && saved.isNotEmpty) {
+      final m = Map<String, dynamic>.from(saved);
+      _savedView = m;
+      _seedFromSavedView(m);
+    }
     Future.microtask(_run);
+  }
+
+  void _seedFromSavedView(Map<String, dynamic> v) {
+    _groupBy = v['groupBy'] as String?;
+    _pivotBy = v['pivotBy'] as String?;
+    _pivotValueCol = v['pivotValueCol'] as String?;
+    _pivotValueAgg = (v['pivotValueAgg'] as String?) ?? 'sum';
+    final aggs = v['aggregations'];
+    _aggregations.clear();
+    if (aggs is Map) {
+      for (final entry in aggs.entries) {
+        _aggregations[entry.key.toString()] = entry.value.toString();
+      }
+    }
+  }
+
+  // Snapshot the current transform state in the same shape we
+  // persist. `groupBy == null` collapses to an empty map — saving
+  // that state clears the saved view.
+  Map<String, dynamic> _currentTransformAsMap() {
+    if (_groupBy == null) return const <String, dynamic>{};
+    return {
+      'groupBy': _groupBy,
+      if (_pivotBy != null) 'pivotBy': _pivotBy,
+      if (_pivotBy != null && _pivotValueCol != null) 'pivotValueCol': _pivotValueCol,
+      if (_pivotBy != null) 'pivotValueAgg': _pivotValueAgg,
+      if (_aggregations.isNotEmpty) 'aggregations': Map<String, String>.from(_aggregations),
+    };
+  }
+
+  bool _mapsEqual(Map a, Map b) {
+    if (a.length != b.length) return false;
+    for (final k in a.keys) {
+      if (!b.containsKey(k)) return false;
+      final av = a[k];
+      final bv = b[k];
+      if (av is Map && bv is Map) {
+        if (!_mapsEqual(av, bv)) return false;
+      } else if (av != bv) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool get _isViewDirty {
+    final current = _currentTransformAsMap();
+    final saved = _savedView ?? const <String, dynamic>{};
+    return !_mapsEqual(current, saved);
+  }
+
+  bool get _hasSavedView => _savedView != null && _savedView!.isNotEmpty;
+
+  Future<void> _saveView() async {
+    final view = _currentTransformAsMap();
+    final origCfg = widget.report['config'] as Map?;
+    final cfg = origCfg == null
+        ? <String, dynamic>{}
+        : Map<String, dynamic>.from(origCfg);
+    if (view.isEmpty) {
+      cfg.remove('savedView');
+    } else {
+      cfg['savedView'] = view;
+    }
+    try {
+      await ref.read(apiClientProvider).putJson(
+        '/reports/${widget.report['id']}',
+        body: {'config': cfg},
+      );
+      if (!mounted) return;
+      setState(() {
+        _savedView = view.isEmpty ? null : Map<String, dynamic>.from(view);
+        // Keep widget.report.config in sync so re-opening the editor
+        // dialog (or other surfaces that read it) sees the latest.
+        widget.report['config'] = cfg;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(view.isEmpty ? 'Saved view cleared' : 'View saved')),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Save failed: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _run() async {
@@ -330,6 +430,9 @@ class _ReportRunnerPageState extends ConsumerState<ReportRunnerPage> {
                 pivotValueCol: _pivotValueCol,
                 pivotValueAgg: _pivotValueAgg,
                 aggregations: _aggregations,
+                hasSavedView: _hasSavedView,
+                isDirty: _isViewDirty,
+                canSave: ref.watch(authControllerProvider).can('reports.edit'),
                 onChanged: (next) {
                   setState(() {
                     _groupBy = next.groupBy;
@@ -343,6 +446,7 @@ class _ReportRunnerPageState extends ConsumerState<ReportRunnerPage> {
                   _applyTransform();
                 },
                 onReset: _resetTransform,
+                onSave: _saveView,
               ),
               const SizedBox(height: 12),
               if (_displayRows.isEmpty)
@@ -387,8 +491,12 @@ class _GroupPanel extends StatelessWidget {
     required this.pivotValueCol,
     required this.pivotValueAgg,
     required this.aggregations,
+    required this.hasSavedView,
+    required this.isDirty,
+    required this.canSave,
     required this.onChanged,
     required this.onReset,
+    required this.onSave,
   });
 
   final List<Map<String, dynamic>> rawColumns;
@@ -397,8 +505,12 @@ class _GroupPanel extends StatelessWidget {
   final String? pivotValueCol;
   final String pivotValueAgg;
   final Map<String, String> aggregations;
+  final bool hasSavedView;
+  final bool isDirty;
+  final bool canSave;
   final ValueChanged<_TransformConfig> onChanged;
   final VoidCallback onReset;
+  final VoidCallback onSave;
 
   static const _aggOptions = <String, String>{
     'sum': 'Sum',
@@ -416,6 +528,12 @@ class _GroupPanel extends StatelessWidget {
   bool get _isActive => groupBy != null;
 
   String _summary() {
+    final base = _summaryBase();
+    if (!hasSavedView) return base;
+    return isDirty ? '$base · saved view (modified)' : '$base · saved view';
+  }
+
+  String _summaryBase() {
     if (groupBy == null) return 'Off';
     final g = groupBy!;
     if (pivotBy != null && pivotValueCol != null) {
@@ -482,13 +600,27 @@ class _GroupPanel extends StatelessWidget {
           leading: Icon(Icons.functions, color: _isActive ? cs.primary : cs.outline),
           title: const Text('Group / Pivot'),
           subtitle: Text(_summary(), style: TextStyle(fontSize: 12, color: cs.outline)),
-          trailing: _isActive
+          trailing: (_isActive || hasSavedView)
               ? Row(mainAxisSize: MainAxisSize.min, children: [
-                  TextButton.icon(
-                    onPressed: onReset,
-                    icon: const Icon(Icons.refresh, size: 16),
-                    label: const Text('Reset'),
-                  ),
+                  if (_isActive)
+                    TextButton.icon(
+                      onPressed: onReset,
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: const Text('Reset'),
+                    ),
+                  if (canSave)
+                    TextButton.icon(
+                      // When the saved view exists and the user has
+                      // cleared the transform, "Save view" effectively
+                      // means "clear the saved view" — reflect that in
+                      // the label so the action isn't surprising.
+                      onPressed: isDirty ? onSave : null,
+                      icon: Icon(
+                        _isActive ? Icons.bookmark_add_outlined : Icons.bookmark_remove_outlined,
+                        size: 16,
+                      ),
+                      label: Text(_isActive ? 'Save view' : 'Clear saved'),
+                    ),
                   const Icon(Icons.expand_more),
                 ])
               : null,

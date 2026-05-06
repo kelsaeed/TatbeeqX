@@ -304,6 +304,11 @@ class _ReportEditorDialogState extends ConsumerState<_ReportEditorDialog> {
   late final TextEditingController _configCtrl;
   String? _builder;
   List<Map<String, dynamic>> _formulaColumns = [];
+  // Phase 4.21d — preserve savedView opaquely through edit/save so a
+  // user editing the report doesn't accidentally clear the persisted
+  // pivot/group view. Like formulaColumns, savedView is stripped from
+  // the raw-JSON textarea and merged back in on save.
+  Map<String, dynamic>? _savedView;
   List<String> _builders = const [];
   bool _loadingBuilders = true;
   bool _saving = false;
@@ -323,14 +328,22 @@ class _ReportEditorDialogState extends ConsumerState<_ReportEditorDialog> {
     _builder = r?['builder']?.toString();
 
     final cfg = (r?['config'] as Map?) ?? const {};
-    // Pull formulaColumns out of config so it gets a structured editor;
-    // the rest of config goes into the raw JSON textarea. On save we
-    // merge the structured list back in.
+    // Pull formulaColumns + savedView out of config so they don't
+    // pollute the raw-JSON textarea. formulaColumns gets a structured
+    // editor right here; savedView is set/cleared by the runner's
+    // "Save view" button, but we preserve it opaquely so editing
+    // unrelated fields doesn't drop it. Both merge back in on save.
     final fcRaw = (cfg['formulaColumns'] as List?) ?? const [];
     _formulaColumns = fcRaw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-    final cfgWithoutFormulas = Map<String, dynamic>.from(cfg)..remove('formulaColumns');
+    final savedRaw = cfg['savedView'];
+    if (savedRaw is Map && savedRaw.isNotEmpty) {
+      _savedView = Map<String, dynamic>.from(savedRaw);
+    }
+    final cfgForTextarea = Map<String, dynamic>.from(cfg)
+      ..remove('formulaColumns')
+      ..remove('savedView');
     _configCtrl = TextEditingController(
-      text: cfgWithoutFormulas.isEmpty ? '' : const JsonEncoder.withIndent('  ').convert(cfgWithoutFormulas),
+      text: cfgForTextarea.isEmpty ? '' : const JsonEncoder.withIndent('  ').convert(cfgForTextarea),
     );
 
     Future.microtask(_loadBuilders);
@@ -395,6 +408,9 @@ class _ReportEditorDialogState extends ConsumerState<_ReportEditorDialog> {
     if (config == null) return;
     if (_formulaColumns.isNotEmpty) {
       config['formulaColumns'] = _formulaColumns;
+    }
+    if (_savedView != null && _savedView!.isNotEmpty) {
+      config['savedView'] = _savedView;
     }
     setState(() {
       _saving = true;
