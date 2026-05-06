@@ -323,7 +323,7 @@ BoxFit _fitFrom(String? s) {
 
 String _resolveUrl(String url) {
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  const base = AppConfig.apiBaseUrl;
+  final base = AppConfig.apiBaseUrl;
   final stripped = base.endsWith('/api') ? base.substring(0, base.length - 4) : base;
   return '$stripped$url';
 }
