@@ -1,4 +1,5 @@
 import { prisma } from './prisma.js';
+import { compileFormula, evalFormula } from './formula.js';
 
 const builders = {
   'users.by_role': async () => {
@@ -97,10 +98,78 @@ export function listBuilders() {
   return Object.keys(builders);
 }
 
+// Phase 4.21 — formula columns. Operators add computed columns to a
+// report's `config.formulaColumns` array; each one runs after the
+// builder produces its rows. Reuses the safe formula evaluator from
+// custom-entity columns (lib/formula.js): tokenize → parse → eval,
+// no eval/Function/vm, null-propagating, cached AST.
+//
+// Schema:
+//   { key, label, formula, numeric? }   // numeric defaults to true
+//
+// Validation:
+// - key must not collide with a builder column.
+// - formula must parse — parse errors throw with the bad formula
+//   text so the operator can find it.
+// - missing/non-numeric inputs evaluate to null (matches SQL).
+export function applyFormulaColumns(result, formulaColumns) {
+  if (!Array.isArray(formulaColumns) || formulaColumns.length === 0) {
+    return result;
+  }
+  const existingKeys = new Set((result.columns || []).map((c) => c.key));
+  const compiled = [];
+  for (const f of formulaColumns) {
+    if (!f || typeof f !== 'object') {
+      throw new Error('formulaColumn entry must be an object');
+    }
+    const key = typeof f.key === 'string' ? f.key.trim() : '';
+    const label = typeof f.label === 'string' ? f.label.trim() : '';
+    const formula = typeof f.formula === 'string' ? f.formula.trim() : '';
+    if (!key) throw new Error('formulaColumn.key is required');
+    if (!label) throw new Error(`formulaColumn "${key}".label is required`);
+    if (!formula) throw new Error(`formulaColumn "${key}".formula is required`);
+    if (existingKeys.has(key)) {
+      throw new Error(`formulaColumn "${key}" collides with an existing column`);
+    }
+    let ast;
+    try {
+      ast = compileFormula(formula);
+    } catch (err) {
+      throw new Error(`formulaColumn "${key}" parse error: ${err.message} (formula: ${formula})`);
+    }
+    existingKeys.add(key);
+    compiled.push({
+      key,
+      label,
+      numeric: f.numeric !== false,
+      ast,
+    });
+  }
+  const newColumns = [
+    ...(result.columns || []),
+    ...compiled.map((c) => ({ key: c.key, label: c.label, numeric: c.numeric })),
+  ];
+  const newRows = (result.rows || []).map((row) => {
+    const out = { ...row };
+    // Each formula sees the row PLUS any earlier formula results, so
+    // operators can chain (e.g. `subtotal = qty*price`, then
+    // `total = subtotal*1.1`). No cycle detection — formulas are
+    // applied in declared order, references to later columns
+    // resolve to undefined → null per formula.js semantics.
+    for (const c of compiled) {
+      out[c.key] = evalFormula(c.ast, out);
+    }
+    return out;
+  });
+  return { ...result, columns: newColumns, rows: newRows };
+}
+
 export async function runReport(builder, config) {
   const fn = builders[builder];
   if (!fn) throw new Error(`Unknown report builder: ${builder}`);
-  return fn(config || {});
+  const cfg = config || {};
+  const raw = await fn(cfg);
+  return applyFormulaColumns(raw, cfg.formulaColumns);
 }
 
 export async function runReportById(reportId) {

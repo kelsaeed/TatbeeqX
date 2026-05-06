@@ -81,9 +81,57 @@ Endpoints for managing reports (`POST/PUT/DELETE /api/reports`) gate on the stan
 
 The new report appears at `/reports` grouped under its category. Opening it runs the builder and renders the result.
 
+## Formula columns (Phase 4.21)
+
+Add computed columns to a report without writing a new builder. List them in the report's `config.formulaColumns` array; the runner appends them to the result before sending to the frontend.
+
+```jsonc
+{
+  "config": {
+    "formulaColumns": [
+      { "key": "ratio",    "label": "Users/Branch", "formula": "users / branches" },
+      { "key": "subtotal", "label": "Subtotal",     "formula": "qty * price" },
+      { "key": "total",    "label": "Total",        "formula": "subtotal * 1.1" }
+    ]
+  }
+}
+```
+
+**Schema per entry:**
+- `key` (string, required) — column key. Must NOT collide with a builder column.
+- `label` (string, required) — display label.
+- `formula` (string, required) — expression evaluated against each row.
+- `numeric` (bool, optional) — defaults to `true` (right-aligned in the table).
+
+**Expression grammar.** Reuses the safe evaluator from custom-entity formula columns ([`lib/formula.js`](../backend/src/lib/formula.js)):
+
+```
+expr   = term (('+'|'-') term)*
+term   = unary (('*'|'/') unary)*
+unary  = ('-' | '+')? factor
+factor = NUMBER | IDENT | '(' expr ')'
+```
+
+No JS access — no `eval`, no `Function`, no `vm`. Only arithmetic over numbers and field references. If you need conditionals, strings, or function calls, write a builder.
+
+**Semantics:**
+- **Null-propagating.** If any referenced field is `null` / `undefined` / `''`, the whole formula returns `null`. Matches SQL's "missing input → missing output", not "0 + null = 0".
+- **Divide-by-zero returns null** rather than `Infinity` / `NaN` (those serialize awkwardly to JSON).
+- **Chaining works in declared order.** A later formula can reference an earlier formula's key (the `total = subtotal * 1.1` example above). No cycle detection — references to later columns evaluate to `null`.
+
+**Errors.** Parse errors surface immediately when the report runs, with the bad formula text in the message:
+
+```
+Error: formulaColumn "ratio" parse error: Unexpected token EOF() at position 2 (formula: users +)
+```
+
+Key collisions throw the same way (with the offending key name).
+
+**Tests:** [`backend/tests/reports_formula_columns.test.js`](../backend/tests/reports_formula_columns.test.js) covers pass-through, single + chained formulas, null propagation, divide-by-zero, every validation case, and that input rows aren't mutated.
+
 ## Table ↔ chart toggle
 
-If the result has at least one numeric column, the runner page shows a **Chart** toggle. Numeric columns become bars; the first text-typed column becomes the X axis. Built with `fl_chart`.
+If the result has at least one numeric column, the runner page shows a **Chart** toggle. Numeric columns become bars; the first text-typed column becomes the X axis. Charts are custom-painted (no `fl_chart` dep — kept the no-plugin philosophy from Phase 4.1).
 
 ## Column types in the schema
 
