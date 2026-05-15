@@ -13,6 +13,10 @@ backend/.env-backups/
 # --- Prisma / SQLite ---
 backend/prisma/dev.db
 backend/prisma/dev.db-journal
+# WAL sidecars — created at runtime since the server enables
+# journal_mode=WAL (see backend/src/lib/prisma.js applySqlitePragmas).
+backend/prisma/dev.db-wal
+backend/prisma/dev.db-shm
 backend/prisma/migrations/dev/
 
 # --- Server-side state (per-install, not source) ---
