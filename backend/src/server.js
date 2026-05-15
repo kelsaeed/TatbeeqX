@@ -3,11 +3,21 @@ import { buildApp } from './lib/app.js';
 import { startCronLoop } from './lib/cron.js';
 import { logSystem } from './lib/system_log.js';
 import { bootSeedIfNeeded } from './lib/boot_seeder.js';
+import { applySqlitePragmas } from './lib/prisma.js';
 
 const app = buildApp();
 
 app.listen(env.port, env.host, async () => {
   console.log(`API listening on http://${env.host}:${env.port}`);
+  // SQLite tuning (WAL + NORMAL + busy_timeout) before anything writes
+  // — the boot seeder below and the cron loop both hit the DB. Failing
+  // here must not take down the server; default journal mode still
+  // works, just slower.
+  try {
+    await applySqlitePragmas();
+  } catch (err) {
+    console.error('SQLite pragma setup failed (continuing on defaults):', err);
+  }
   // Phase 4.12 — first-boot seeder runs before cron and before any
   // request lands. Idempotent: a marker row in `settings` records that
   // we've already applied the bundled template, so restarts don't
