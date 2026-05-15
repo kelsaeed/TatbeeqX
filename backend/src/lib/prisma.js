@@ -42,10 +42,17 @@ export async function applySqlitePragmas() {
     pragmasApplied = true;
     return;
   }
-  // journal_mode returns a row ("wal"); the rest are statements.
+  // Every one of these must go through $queryRawUnsafe, NOT
+  // $executeRawUnsafe: SQLite returns a result row for several PRAGMA
+  // assignments (journal_mode → "wal", busy_timeout → the new value),
+  // and Prisma's $executeRaw* rejects any statement that returns rows
+  // ("Execute returned results, which is not allowed in SQLite").
+  // $queryRawUnsafe handles both the row-returning and silent pragmas
+  // (it just yields []). Each runs in autocommit (no transaction
+  // wrapper), which journal_mode=WAL also requires.
   await prisma.$queryRawUnsafe('PRAGMA journal_mode = WAL;');
-  await prisma.$executeRawUnsafe('PRAGMA synchronous = NORMAL;');
-  await prisma.$executeRawUnsafe('PRAGMA busy_timeout = 5000;');
-  await prisma.$executeRawUnsafe('PRAGMA temp_store = MEMORY;');
+  await prisma.$queryRawUnsafe('PRAGMA synchronous = NORMAL;');
+  await prisma.$queryRawUnsafe('PRAGMA busy_timeout = 5000;');
+  await prisma.$queryRawUnsafe('PRAGMA temp_store = MEMORY;');
   pragmasApplied = true;
 }
