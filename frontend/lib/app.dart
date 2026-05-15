@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,21 +26,35 @@ class _TatbeeqXAppState extends ConsumerState<TatbeeqXApp> {
   void initState() {
     super.initState();
     Future.microtask(() async {
-      // Phase 4.20 — single pre-auth bundle. /api/boot returns
-      // subsystem info + active theme in one round-trip; subsystemInfo
-      // provider derives from the same bootProvider so any consumer
-      // of it gets the same future. Falls back to the legacy
-      // /themes/active call if the bundle itself errored.
-      final boot = await ref.read(bootProvider.future);
-      if (!boot.failed) {
-        ref.read(themeControllerProvider.notifier).applyBootTheme(boot.themeJson);
-      } else {
-        // Legacy path — the bundle failed, fetch the theme directly.
-        // setup.refresh() is NOT triggered here — the ref.listen below
-        // catches the auth transition and fires it once.
-        await ref.read(themeControllerProvider.notifier).loadActive();
-      }
-      await ref.read(authControllerProvider.notifier).bootstrap();
+      // First paint must NOT wait on the network. The router's redirect
+      // gate is `auth.bootstrapped`; until that flips, the app is stuck
+      // on the initial /dashboard route and the login screen can't
+      // appear. bootstrap() is instant when there's no stored token and
+      // is the ONLY thing that gate needs — so run it first and on its
+      // own. Previously it ran last, behind `await /boot` (≤30s) and,
+      // on failure, `await /themes/active` (another ≤30s): an
+      // unreachable or wrong-port backend froze the window for up to a
+      // minute before login could even render ("Not Responding").
+      final bootstrapDone =
+          ref.read(authControllerProvider.notifier).bootstrap();
+
+      // Phase 4.20 — single pre-auth bundle. /api/boot returns subsystem
+      // info + active theme in one round-trip; subsystemInfoProvider
+      // derives from the same bootProvider. This now hydrates in the
+      // BACKGROUND (no await on the first-paint path): the UI renders
+      // with theme defaults immediately and restyles when /boot lands.
+      // Falls back to /themes/active only if the bundle itself errored.
+      // setup.refresh() is NOT triggered here — the ref.listen below
+      // catches the auth transition and fires it once.
+      unawaited(ref.read(bootProvider.future).then((boot) {
+        if (!boot.failed) {
+          ref.read(themeControllerProvider.notifier).applyBootTheme(boot.themeJson);
+        } else {
+          unawaited(ref.read(themeControllerProvider.notifier).loadActive());
+        }
+      }));
+
+      await bootstrapDone;
     });
   }
 

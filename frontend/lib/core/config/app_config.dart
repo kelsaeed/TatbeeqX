@@ -25,5 +25,15 @@ class AppConfig {
 
   static const String appName = 'TatbeeqX';
 
-  static const Duration apiTimeout = Duration(seconds: 30);
+  // Connecting is fast on a healthy LAN/localhost backend (single-digit
+  // ms). A long connect timeout only ever hurts: when the backend is
+  // down, on the wrong port, or starved (e.g. AV-throttled), every
+  // request — including the boot/auth calls behind first paint — would
+  // otherwise hang the UI for the full window. 5s is generous for a
+  // reachable server and quick to surface "backend not running".
+  static const Duration apiConnectTimeout = Duration(seconds: 5);
+
+  // Receive can legitimately be slow: /audit and /system-logs return
+  // MB-scale payloads. Keep this generous.
+  static const Duration apiReceiveTimeout = Duration(seconds: 30);
 }

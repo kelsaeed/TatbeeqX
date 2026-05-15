@@ -11,8 +11,9 @@ class ApiClient {
       : dio = Dio(
           BaseOptions(
             baseUrl: AppConfig.apiBaseUrl,
-            connectTimeout: AppConfig.apiTimeout,
-            receiveTimeout: AppConfig.apiTimeout,
+            connectTimeout: AppConfig.apiConnectTimeout,
+            receiveTimeout: AppConfig.apiReceiveTimeout,
+            sendTimeout: AppConfig.apiReceiveTimeout,
             headers: {'Content-Type': 'application/json'},
             validateStatus: (s) => s != null && s < 500,
           ),
@@ -93,7 +94,15 @@ class ApiClient {
     try {
       // Bypass the interceptor on this call — fresh Dio instance, no
       // Authorization header, so a 401 here doesn't recurse.
-      final raw = Dio(BaseOptions(baseUrl: AppConfig.apiBaseUrl, validateStatus: (s) => s != null && s < 500));
+      // Bare Dio has NO timeouts by default (infinite). Without these a
+      // 401 on a dead/wrong-port backend would hang the refresh — and
+      // every request that triggered it — forever.
+      final raw = Dio(BaseOptions(
+        baseUrl: AppConfig.apiBaseUrl,
+        connectTimeout: AppConfig.apiConnectTimeout,
+        receiveTimeout: AppConfig.apiReceiveTimeout,
+        validateStatus: (s) => s != null && s < 500,
+      ));
       final res = await raw.post('/auth/refresh', data: {'refreshToken': refresh});
       if (res.statusCode != 200) return false;
       final data = res.data;
