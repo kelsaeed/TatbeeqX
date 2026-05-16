@@ -416,6 +416,20 @@ class _SidebarState extends State<_Sidebar> {
       ],
     );
 
+    // Lay the panel out at its TARGET width and let the
+    // AnimatedContainer clip it while the width animates. Otherwise the
+    // expanded header Row's fixed children (icon 22 + gap 10 + collapse
+    // button 40 = 72) get re-fit to the intermediate ~44px width on
+    // every expand and overflow by 28px. OverflowBox pins the content
+    // to the leading edge (directional, so RTL reveals from the right)
+    // so the transition is a clean slide instead of a reflow.
+    final body = OverflowBox(
+      minWidth: width,
+      maxWidth: width,
+      alignment: AlignmentDirectional.centerStart,
+      child: inner,
+    );
+
     if (widget.enableGlass) {
       return AnimatedContainer(
         duration: const Duration(milliseconds: 180),
@@ -423,7 +437,7 @@ class _SidebarState extends State<_Sidebar> {
         child: ClipRect(
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: widget.glassBlur, sigmaY: widget.glassBlur),
-            child: Container(color: widget.glassTint, child: inner),
+            child: Container(color: widget.glassTint, child: body),
           ),
         ),
       );
@@ -433,7 +447,7 @@ class _SidebarState extends State<_Sidebar> {
       duration: const Duration(milliseconds: 180),
       width: width,
       color: widget.sidebarColor,
-      child: inner,
+      child: ClipRect(child: body),
     );
   }
 }
