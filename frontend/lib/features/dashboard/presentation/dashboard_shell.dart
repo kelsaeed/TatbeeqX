@@ -36,13 +36,25 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
     // backend bundled it (current path). Falls back to a fresh
     // /menus + /pages/sidebar fetch only on legacy backends or when
     // the seed is missing for some other reason.
+    //
+    // Both branches mutate MenuController.state, so both must be
+    // deferred off initState's synchronous path — Riverpod throws
+    // "Tried to modify a provider while the widget tree was building"
+    // otherwise (initState runs inside _firstBuild). The mounted guard
+    // covers a fast logout→login where this State is disposed before
+    // the microtask drains.
     final authState = ref.read(authControllerProvider);
     final menusSeed = authState.menusJson;
-    if (menusSeed != null) {
-      ref.read(menuControllerProvider.notifier).seedFromAuth(menusSeed, authState.sidebarPagesJson);
-    } else {
-      Future.microtask(() => ref.read(menuControllerProvider.notifier).load());
-    }
+    final sidebarPages = authState.sidebarPagesJson;
+    Future.microtask(() {
+      if (!mounted) return;
+      final menus = ref.read(menuControllerProvider.notifier);
+      if (menusSeed != null) {
+        menus.seedFromAuth(menusSeed, sidebarPages);
+      } else {
+        menus.load();
+      }
+    });
   }
 
   @override
