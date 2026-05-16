@@ -152,6 +152,9 @@ class _LoginForm extends StatelessWidget {
               const SizedBox(height: 28),
               TextFormField(
                 controller: user,
+                // Land focus in the first field so sign-in is keyboard-
+                // only: type username → Tab/Enter → password → Enter.
+                autofocus: true,
                 decoration: InputDecoration(
                   labelText: t.usernameOrEmail,
                   prefixIcon: const Icon(Icons.person_outline),

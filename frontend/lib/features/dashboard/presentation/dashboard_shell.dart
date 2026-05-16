@@ -1,8 +1,11 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../../shared/widgets/command_palette.dart';
 
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/providers.dart';
@@ -123,7 +126,7 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
       ],
     );
 
-    return Scaffold(
+    final scaffold = Scaffold(
       backgroundColor: cs.surface,
       drawer: isMobile ? Drawer(child: sidebar) : null,
       body: Stack(
@@ -145,10 +148,72 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
         ],
       ),
     );
+
+    // Ctrl/Cmd-K opens the quick switcher from anywhere in the app.
+    // CallbackShortcuts catches the chord as it bubbles up the focus
+    // tree; the wrapping Focus(autofocus) guarantees there's always a
+    // focused node so the shortcut fires even on a page with no
+    // focused field.
+    void openPalette() {
+      showCommandPalette(
+        context,
+        _paletteCommands(context, menuState.items, localeCode),
+      );
+    }
+
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyK, control: true):
+            openPalette,
+        const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+            openPalette,
+      },
+      child: Focus(autofocus: true, child: scaffold),
+    );
+  }
+
+  // Flatten the menu tree into jump targets. Parent labels become the
+  // dimmed `group` tag so e.g. two "Settings"-ish entries are
+  // distinguishable in the palette.
+  List<CommandItem> _paletteCommands(
+    BuildContext context,
+    List items,
+    String locale,
+  ) {
+    final out = <CommandItem>[];
+    void walk(List<MenuItemNode> nodes, String? group) {
+      for (final n in nodes) {
+        if (n.children.isNotEmpty) {
+          walk(n.children, n.labelFor(locale));
+        } else {
+          final r = n.route;
+          if (r == null || r.isEmpty) continue;
+          out.add(CommandItem(
+            label: n.labelFor(locale),
+            group: group,
+            icon: iconFromName(n.icon),
+            onSelect: () => context.go(r),
+          ));
+        }
+      }
+    }
+
+    walk(items.cast<MenuItemNode>(), null);
+    return out;
   }
 }
 
-class _Sidebar extends StatelessWidget {
+// Renders the menu *tree*. The old version walked one level deep and
+// `SizedBox.shrink()`'d any route-less node, so a server-sent group
+// (a parent with children but no route of its own) — and everything
+// under it — silently vanished from the sidebar. Now: leaves are nav
+// tiles, parents are collapsible section headers, nesting recurses.
+// A flat list (no children anywhere) renders exactly as before, so a
+// flat /api/menus payload is unaffected. Groups are expanded by
+// default (nothing hidden); the user can collapse the ones they don't
+// use, and a group containing the active route force-expands so the
+// current page is always visible.
+class _Sidebar extends StatefulWidget {
   const _Sidebar({
     required this.collapsed,
     required this.items,
@@ -180,15 +245,114 @@ class _Sidebar extends StatelessWidget {
   final VoidCallback onToggle;
 
   @override
+  State<_Sidebar> createState() => _SidebarState();
+}
+
+class _SidebarState extends State<_Sidebar> {
+  // Group codes the user has explicitly collapsed. Absence ⇒ expanded,
+  // so a fresh session shows everything (no discoverability hit) and
+  // the State persists across shell rebuilds (navigation) since the
+  // widget keeps its slot in the tree.
+  final Set<String> _collapsed = {};
+
+  List<MenuItemNode> get _nodes => widget.items.cast<MenuItemNode>();
+
+  bool _isGroup(MenuItemNode n) => n.children.isNotEmpty;
+
+  bool _subtreeActive(MenuItemNode n) {
+    final r = n.route;
+    if (r != null && r.isNotEmpty && widget.currentPath.startsWith(r)) {
+      return true;
+    }
+    for (final c in n.children) {
+      if (_subtreeActive(c)) return true;
+    }
+    return false;
+  }
+
+  void _collectLeaves(List<MenuItemNode> nodes, List<MenuItemNode> out) {
+    for (final n in nodes) {
+      if (_isGroup(n)) {
+        _collectLeaves(n.children, out);
+      } else if ((n.route ?? '').isNotEmpty) {
+        out.add(n);
+      }
+    }
+  }
+
+  List<Widget> _buildNodes(List<MenuItemNode> nodes, int depth) {
+    final out = <Widget>[];
+    for (final n in nodes) {
+      if (_isGroup(n)) {
+        final active = _subtreeActive(n);
+        final expanded = active || !_collapsed.contains(n.code);
+        out.add(_GroupTile(
+          icon: iconFromName(n.icon),
+          label: n.labelFor(widget.localeCode),
+          depth: depth,
+          expanded: expanded,
+          active: active,
+          text: widget.sidebarText,
+          // Force-expanded by an active child can't be collapsed away
+          // (it'd re-open instantly) — toggling is a no-op there, which
+          // is the right behavior: don't hide the current page.
+          onToggle: () => setState(() {
+            if (_collapsed.contains(n.code)) {
+              _collapsed.remove(n.code);
+            } else {
+              _collapsed.add(n.code);
+            }
+          }),
+        ));
+        if (expanded) out.addAll(_buildNodes(n.children, depth + 1));
+      } else {
+        final route = n.route;
+        if (route == null || route.isEmpty) continue;
+        out.add(_NavTile(
+          icon: iconFromName(n.icon),
+          label: n.labelFor(widget.localeCode),
+          depth: depth,
+          collapsed: false,
+          selected: widget.currentPath.startsWith(route),
+          text: widget.sidebarText,
+          onTap: () => widget.onSelect(route),
+        ));
+      }
+    }
+    return out;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final collapsed = widget.collapsed;
+    final sidebarText = widget.sidebarText;
     final width = collapsed ? 72.0 : 248.0;
+
+    final List<Widget> navChildren;
+    if (collapsed) {
+      // Icon rail: section headers make no sense at 72px, so flatten
+      // to leaf icons (the prior behavior at this width).
+      final leaves = <MenuItemNode>[];
+      _collectLeaves(_nodes, leaves);
+      navChildren = [
+        for (final n in leaves)
+          _NavTile(
+            icon: iconFromName(n.icon),
+            label: n.labelFor(widget.localeCode),
+            depth: 0,
+            collapsed: true,
+            selected: widget.currentPath.startsWith(n.route ?? ' '),
+            text: sidebarText,
+            onTap: () => widget.onSelect(n.route!),
+          ),
+      ];
+    } else {
+      navChildren = _buildNodes(_nodes, 0);
+    }
+
     final inner = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // When collapsed (72px wide), the wallet + name + toggle Row
-        // overflowed by 18px. We drop the wallet icon and center the
-        // toggle in collapsed mode; the toggle is the only affordance
-        // the user needs there. Expanded mode stays unchanged.
         Padding(
           padding: collapsed
               ? const EdgeInsets.symmetric(horizontal: 8, vertical: 18)
@@ -196,7 +360,7 @@ class _Sidebar extends StatelessWidget {
           child: collapsed
               ? Center(
                   child: IconButton(
-                    onPressed: onToggle,
+                    onPressed: widget.onToggle,
                     icon: Icon(Icons.chevron_right, color: sidebarText, size: 20),
                     splashRadius: 18,
                     tooltip: 'Expand',
@@ -208,13 +372,13 @@ class _Sidebar extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        appName,
+                        widget.appName,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: sidebarText, fontSize: 15, fontWeight: FontWeight.w700),
                       ),
                     ),
                     IconButton(
-                      onPressed: onToggle,
+                      onPressed: widget.onToggle,
                       icon: Icon(Icons.chevron_left, color: sidebarText, size: 20),
                       splashRadius: 18,
                       tooltip: 'Collapse',
@@ -224,23 +388,9 @@ class _Sidebar extends StatelessWidget {
         ),
         Divider(color: sidebarText.withValues(alpha: 0.12), height: 1),
         Expanded(
-          child: ListView.builder(
+          child: ListView(
             padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: items.length,
-            itemBuilder: (ctx, i) {
-              final node = items[i];
-              final route = node.route as String?;
-              if (route == null) return const SizedBox.shrink();
-              final selected = currentPath.startsWith(route);
-              return _NavTile(
-                icon: iconFromName(node.icon as String?),
-                label: node is MenuItemNode ? node.labelFor(localeCode) : (node.label as String),
-                collapsed: collapsed,
-                selected: selected,
-                text: sidebarText,
-                onTap: () => onSelect(route),
-              );
-            },
+            children: navChildren,
           ),
         ),
         Divider(color: sidebarText.withValues(alpha: 0.12), height: 1),
@@ -254,14 +404,14 @@ class _Sidebar extends StatelessWidget {
       ],
     );
 
-    if (enableGlass) {
+    if (widget.enableGlass) {
       return AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         width: width,
         child: ClipRect(
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: glassBlur, sigmaY: glassBlur),
-            child: Container(color: glassTint, child: inner),
+            filter: ImageFilter.blur(sigmaX: widget.glassBlur, sigmaY: widget.glassBlur),
+            child: Container(color: widget.glassTint, child: inner),
           ),
         ),
       );
@@ -270,7 +420,7 @@ class _Sidebar extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       width: width,
-      color: sidebarColor,
+      color: widget.sidebarColor,
       child: inner,
     );
   }
@@ -284,6 +434,7 @@ class _NavTile extends StatelessWidget {
     required this.selected,
     required this.text,
     required this.onTap,
+    this.depth = 0,
   });
 
   final IconData icon;
@@ -292,14 +443,17 @@ class _NavTile extends StatelessWidget {
   final bool selected;
   final Color text;
   final VoidCallback onTap;
+  final int depth;
 
   @override
   Widget build(BuildContext context) {
     final bg = selected ? text.withValues(alpha: 0.10) : Colors.transparent;
     final fg = selected ? text : text.withValues(alpha: 0.78);
+    // Nested items get a left inset so the hierarchy reads at a glance.
+    final indent = collapsed ? 0.0 : depth * 16.0;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: EdgeInsets.fromLTRB(8 + indent, 2, 8, 2),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
         onTap: onTap,
@@ -320,6 +474,75 @@ class _NavTile extends StatelessWidget {
                   ),
                 ),
               ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Collapsible section header for a menu parent. Distinct from a leaf:
+// it never navigates, it expands/collapses its children. The chevron
+// + slightly heavier label signal "this opens", and an active subtree
+// tints it so you can see where the current page lives.
+class _GroupTile extends StatelessWidget {
+  const _GroupTile({
+    required this.icon,
+    required this.label,
+    required this.depth,
+    required this.expanded,
+    required this.active,
+    required this.text,
+    required this.onToggle,
+  });
+
+  final IconData icon;
+  final String label;
+  final int depth;
+  final bool expanded;
+  final bool active;
+  final Color text;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = active ? text : text.withValues(alpha: 0.70);
+    final indent = depth * 16.0;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(8 + indent, 2, 8, 2),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onToggle,
+        child: Container(
+          height: 38,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: active ? text.withValues(alpha: 0.06) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: fg, size: 18),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: fg,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+              AnimatedRotation(
+                turns: expanded ? 0.25 : 0.0,
+                duration: const Duration(milliseconds: 150),
+                child: Icon(Icons.chevron_right,
+                    color: text.withValues(alpha: 0.5), size: 18),
+              ),
             ],
           ),
         ),

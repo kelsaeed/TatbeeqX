@@ -21,6 +21,7 @@ class PaginatedSearchTable<T> extends StatefulWidget {
     this.onRowTap,
     this.searchable = true,
     this.pageSize = 25,
+    this.emptyAction,
   });
 
   final List<TableColumn<T>> columns;
@@ -31,6 +32,10 @@ class PaginatedSearchTable<T> extends StatefulWidget {
   final void Function(T row)? onRowTap;
   final bool searchable;
   final int pageSize;
+  // Optional call-to-action shown in the empty state when there's no
+  // active search (e.g. the page's "New X" button), so a fresh/empty
+  // list points the user at the next step instead of a dead end.
+  final Widget? emptyAction;
 
   @override
   State<PaginatedSearchTable<T>> createState() => PaginatedSearchTableState<T>();
@@ -138,7 +143,29 @@ class PaginatedSearchTableState<T> extends State<PaginatedSearchTable<T>> {
           if (_loading)
             const Padding(padding: EdgeInsets.all(28), child: CircularProgressIndicator())
           else if (_items.isEmpty)
-            Padding(padding: const EdgeInsets.all(40), child: Text(t.noData))
+            Padding(
+              padding: const EdgeInsets.all(48),
+              child: Column(
+                children: [
+                  Icon(
+                    _search.isEmpty ? Icons.inbox_outlined : Icons.search_off,
+                    size: 44,
+                    color: cs.onSurface.withValues(alpha: 0.35),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    t.noData,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: cs.onSurface.withValues(alpha: 0.6),
+                        ),
+                  ),
+                  if (_search.isEmpty && widget.emptyAction != null) ...[
+                    const SizedBox(height: 16),
+                    widget.emptyAction!,
+                  ],
+                ],
+              ),
+            )
           else
             ListView.separated(
               shrinkWrap: true,

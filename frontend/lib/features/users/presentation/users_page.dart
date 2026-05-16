@@ -8,6 +8,7 @@ import '../../../core/providers.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/widgets/page_header.dart';
 import '../../../shared/widgets/paginated_search_table.dart';
+import '../../../shared/widgets/row_actions.dart';
 import '../../auth/application/auth_controller.dart';
 import 'user_form_dialog.dart';
 
@@ -210,39 +211,44 @@ class _UsersPageState extends ConsumerState<UsersPage> {
               TableColumn(
                 label: '',
                 flex: 1,
-                cell: (r) {
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      if (canEdit)
-                        IconButton(
-                          tooltip: t.edit,
-                          icon: const Icon(Icons.edit_outlined, size: 18),
-                          onPressed: () => _openForm(context, existing: r),
-                        ),
-                      if (canEdit)
-                        IconButton(
-                          tooltip: t.generateResetToken,
-                          icon: const Icon(Icons.vpn_key_outlined, size: 18),
-                          onPressed: () => _generateResetToken(r),
-                        ),
-                      if (canEdit)
-                        IconButton(
-                          tooltip: t.reset2FA,
-                          icon: const Icon(Icons.shield_outlined, size: 18),
-                          onPressed: () => _reset2FA(r),
-                        ),
-                      if (canDelete)
-                        IconButton(
-                          tooltip: t.delete,
-                          icon: const Icon(Icons.delete_outline, size: 18),
-                          onPressed: () => _delete(r),
-                        ),
-                    ],
-                  );
-                },
+                cell: (r) => RowActionsMenu(
+                  actions: [
+                    if (canEdit)
+                      RowAction(
+                        icon: Icons.edit_outlined,
+                        label: t.edit,
+                        onTap: () => _openForm(context, existing: r),
+                      ),
+                    if (canEdit)
+                      RowAction(
+                        icon: Icons.vpn_key_outlined,
+                        label: t.generateResetToken,
+                        onTap: () => _generateResetToken(r),
+                      ),
+                    if (canEdit)
+                      RowAction(
+                        icon: Icons.shield_outlined,
+                        label: t.reset2FA,
+                        onTap: () => _reset2FA(r),
+                      ),
+                    if (canDelete)
+                      RowAction(
+                        icon: Icons.delete_outline,
+                        label: t.delete,
+                        onTap: () => _delete(r),
+                        destructive: true,
+                      ),
+                  ],
+                ),
               ),
             ],
+            emptyAction: canCreate
+                ? ElevatedButton.icon(
+                    onPressed: () => _openForm(context),
+                    icon: const Icon(Icons.add),
+                    label: Text(t.newUser),
+                  )
+                : null,
           ),
         ],
       ),

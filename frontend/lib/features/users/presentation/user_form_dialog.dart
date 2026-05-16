@@ -126,6 +126,9 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
               children: [
                 TextFormField(
                   controller: _username,
+                  // First field gets focus so the form is typeable
+                  // immediately without a click.
+                  autofocus: true,
                   decoration: InputDecoration(labelText: t.username),
                   validator: (v) => (v == null || v.trim().isEmpty) ? t.required : null,
                 ),

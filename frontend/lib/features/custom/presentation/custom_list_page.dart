@@ -10,6 +10,7 @@ import '../../../l10n/gen/app_localizations.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../../shared/widgets/page_header.dart';
 import '../../../shared/widgets/paginated_search_table.dart';
+import '../../../shared/widgets/row_actions.dart';
 import '../../auth/application/auth_controller.dart';
 import 'custom_record_dialog.dart';
 
@@ -310,25 +311,32 @@ class _CustomListPageState extends ConsumerState<CustomListPage> {
               TableColumn<Map<String, dynamic>>(
                 label: '',
                 flex: 1,
-                cell: (r) => Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
+                cell: (r) => RowActionsMenu(
+                  actions: [
                     if (auth.can('$prefix.edit'))
-                      IconButton(
-                        tooltip: t.edit,
-                        icon: const Icon(Icons.edit_outlined, size: 18),
-                        onPressed: () => _open(row: r),
+                      RowAction(
+                        icon: Icons.edit_outlined,
+                        label: t.edit,
+                        onTap: () => _open(row: r),
                       ),
                     if (auth.can('$prefix.delete'))
-                      IconButton(
-                        tooltip: t.delete,
-                        icon: const Icon(Icons.delete_outline, size: 18),
-                        onPressed: () => _delete(r),
+                      RowAction(
+                        icon: Icons.delete_outline,
+                        label: t.delete,
+                        onTap: () => _delete(r),
+                        destructive: true,
                       ),
                   ],
                 ),
               ),
             ],
+            emptyAction: auth.can('$prefix.create')
+                ? ElevatedButton.icon(
+                    onPressed: () => _open(),
+                    icon: const Icon(Icons.add),
+                    label: Text(t.newEntitySingular(singular)),
+                  )
+                : null,
           ),
         ],
       ),
