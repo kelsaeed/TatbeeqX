@@ -3,7 +3,10 @@
 // Uses node:test (built into Node 20+) so we don't need a test-framework
 // dep in tools/build-subsystem. Run with:
 //
-//   cd tools/build-subsystem && node --test tests/
+//   cd tools/build-subsystem && node --test tests/*.test.mjs
+//
+// (a bare `node --test tests/` is misparsed as a script path on
+// Node 24 / Windows — pass explicit file globs.)
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

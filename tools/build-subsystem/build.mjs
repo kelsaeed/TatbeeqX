@@ -30,7 +30,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import net from 'node:net';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
@@ -121,15 +121,27 @@ function logStep(msg) { console.log(`\n▸ ${msg}`); }
 
 function ensureDir(d) { if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true }); }
 
+// SQLite database + sidecar files. These must NEVER be copied into a
+// subsystem bundle: the source tree's backend/prisma/dev.db is the
+// vendor's own studio data (rows + bcrypt hashes + secrets), and the
+// bundle gets a fresh DB created by `prisma migrate deploy` on first
+// boot. Shipping the studio dev.db is both dead weight and a real
+// data/secret leak to the customer.
+const SQLITE_DB_FILES = [/\.db$/, /\.db-wal$/, /\.db-shm$/, /\.db-journal$/];
+
 function copyTree(src, dest, opts = {}) {
   const skipDirs = new Set(opts.skipDirs || []);
+  const skipFilePatterns = opts.skipFilePatterns || [];
   ensureDir(dest);
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
     if (skipDirs.has(entry.name)) continue;
     const s = path.join(src, entry.name);
     const d = path.join(dest, entry.name);
     if (entry.isDirectory()) copyTree(s, d, opts);
-    else if (entry.isFile()) fs.copyFileSync(s, d);
+    else if (entry.isFile()) {
+      if (skipFilePatterns.some((re) => re.test(entry.name))) continue;
+      fs.copyFileSync(s, d);
+    }
   }
 }
 
@@ -284,6 +296,7 @@ async function main() {
   if (fs.existsSync(staging)) fs.rmSync(staging, { recursive: true, force: true });
   copyTree(backendSrc, path.join(staging, 'backend'), {
     skipDirs: ['node_modules', 'backups', 'uploads', '.env-backups'],
+    skipFilePatterns: SQLITE_DB_FILES,
   });
   copyTree(frontendSrc, path.join(staging, 'frontend'), {
     skipDirs: ['build', '.dart_tool', 'ephemeral'],
@@ -394,6 +407,7 @@ async function main() {
   // Backend (everything we staged, minus node_modules — customer runs `npm install`).
   copyTree(path.join(staging, 'backend'), path.join(bundle, 'backend'), {
     skipDirs: ['node_modules', 'backups', 'uploads'],
+    skipFilePatterns: SQLITE_DB_FILES,
   });
   // Frontend Release output (only present when --no-build wasn't passed).
   const releaseDir = path.join(staging, 'frontend', 'build', 'windows', 'x64', 'runner', 'Release');
@@ -433,7 +447,10 @@ async function main() {
     '  echo Installing backend dependencies...',
     '  call npm install --omit=dev',
     ')',
-    'IF NOT EXIST prisma\\dev.db (',
+    // Guard MUST test the real DB filename (DATABASE_URL points at
+    // ./<dbName>), not a hardcoded dev.db — otherwise first run skips
+    // migrate+seed and the app can't even log in.
+    `IF NOT EXIST prisma\\${dbName} (`,
     '  echo Initializing database...',
     '  call npx prisma migrate deploy',
     '  call node prisma/seed.js',
@@ -548,7 +565,7 @@ adversarial security.
 
 - **Port ${primaryPort} in use** — ${runtimePool.length > 1 ? `\`start.bat\` will auto-pick the next free port from the pool (${runtimePool.join(', ')}).` : `edit \`backend/.env\` to set a different \`PORT\`, or rebuild with \`--port-pool\` to bake a fallback list.`}
 - **Missing Node** — install Node 20+ on the customer host.
-- **Database errors** — delete \`backend/prisma/dev.db\` and \`backend/seed.json\`'s applied marker
+- **Database errors** — delete \`backend/prisma/${dbName}\` and clear \`seed.json\`'s applied marker
   by running this SQL: \`DELETE FROM settings WHERE key IN ('system.subsystem_info', 'system.boot_seed_applied');\`
   and restart.
 `;
@@ -558,7 +575,16 @@ adversarial security.
   logStep(`Done. Bundle at: ${bundle}`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// Only run the build when invoked as a CLI (`node build.mjs ...` /
+// the `build-subsystem` bin). Importing the module (e.g. from tests)
+// must NOT kick off a build.
+const invokedDirectly =
+  process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url;
+if (invokedDirectly) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
+
+export { copyTree, SQLITE_DB_FILES };
